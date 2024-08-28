@@ -190,65 +190,65 @@ function ds:paint(g)
     g:scale(self.scale, self.scale)
     g:translate(22, 6)
 
-    g:set_color(table.unpack(self.color_case)); g:fill_path(shapes.background())
+    g:set_color(table.unpack(self.color_case)); g:fill_path(shapes.paths.background)
     g:set_color(table.unpack(self:blend_color(self.color_led_dark, self.color_led_bright, math.sin(self.time) * 0.5 + 0.5)))
-    g:fill_path(shapes.led())
+    g:fill_path(shapes.paths.led)
 
     g:translate(0, self.state.button_l1*3)
-    g:set_color(self:state_color('button_l1', self.color_active, self.color_case)); g:fill_path(shapes.button_l1())
+    g:set_color(self:state_color('button_l1', self.color_active, self.color_case)); g:fill_path(shapes.paths.button_l1)
     g:translate(0, self.state.button_r1*3-self.state.button_l1*3)
-    g:set_color(self:state_color('button_r1', self.color_active, self.color_case)); g:fill_path(shapes.button_r1())
+    g:set_color(self:state_color('button_r1', self.color_active, self.color_case)); g:fill_path(shapes.paths.button_r1)
     g:translate(0, -self.state.button_r1*3)
 
     g:translate(48, 28)
-    g:set_color(self:state_color('button_l2', self.color_active, self.color_case)); g:fill_path(shapes.button_l2(-self.state.trigger_l*0.28-0.3))
+    g:set_color(self:state_color('button_l2', self.color_active, self.color_case)); g:fill_path(shapes.path_button_l2(-self.state.trigger_l*0.28-0.3))
     g:translate(480, 0)
-    g:set_color(self:state_color('button_r2', self.color_active, self.color_case)); g:fill_path(shapes.button_r2(self.state.trigger_r*0.28+0.3))
+    g:set_color(self:state_color('button_r2', self.color_active, self.color_case)); g:fill_path(shapes.path_button_r2(self.state.trigger_r*0.28+0.3))
     g:translate(-528, -28)
 
-    g:set_color(table.unpack(self.color_cover)); for _, shape in ipairs(shapes.cover()) do g:fill_path(shape) end
-    g:set_color(table.unpack(self.color_inlay)); for _, shape in ipairs(shapes.inlays()) do g:fill_path(shape) end
-    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.inlay_pd())
+    g:set_color(table.unpack(self.color_cover)); for i = 1, #shapes.path_groups.cover do g:fill_path(shapes.path_groups.cover[i]) end
+    g:set_color(table.unpack(self.color_inlay)); for i = 1, #shapes.path_groups.inlays do g:fill_path(shapes.path_groups.inlays[i]) end
+    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.inlay_pd)
 
-    g:set_color(self:state_color('button_pad', self.color_active, self.color_cover)); g:fill_path(shapes.pad())
-    g:set_color(self:state_color('button_mute')); g:fill_path(shapes.button_mute())
-    g:set_color(self:state_color('button_options')); g:fill_path(shapes.button_options())
-    g:set_color(self:state_color('button_create')); g:fill_path(shapes.button_create())
+    g:set_color(self:state_color('button_pad', self.color_active, self.color_cover)); g:fill_path(shapes.paths.pad)
+    g:set_color(self:state_color('button_mute')); g:fill_path(shapes.paths.button_mute)
+    g:set_color(self:state_color('button_options')); g:fill_path(shapes.paths.button_options)
+    g:set_color(self:state_color('button_create')); g:fill_path(shapes.paths.button_create)
     -- g:set_color(self:state_color('button_ps', self.color_active, self.color_case)); for _, shape in ipairs(shapes.button_ps()) do g:fill_path(shape) end
 
-    g:set_color(self:state_color('button_ps', self.color_active, self.color_case)); for _, shape in ipairs(shapes.button_pd()) do g:fill_path(shape) end
-    g:set_color(table.unpack(self.color_inlay)); for _, shape in ipairs(shapes.button_pd_content()) do g:fill_path(shape) end
+    g:set_color(self:state_color('button_ps', self.color_active, self.color_case)); for i = 1, #shapes.path_groups.button_pd do g:fill_path(shapes.path_groups.button_pd[i]) end
+    g:set_color(table.unpack(self.color_inlay)); for i = 1, #shapes.path_groups.button_pd_content do g:fill_path(shapes.path_groups.button_pd_content[i]) end
 
-    g:set_color(self:state_color('button_dir_left')); g:fill_path(shapes.button_dir_left())
-    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.button_dir_left_content())
+    g:set_color(self:state_color('button_dir_left')); g:fill_path(shapes.paths.button_dir_left)
+    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.button_dir_left_content)
 
-    g:set_color(self:state_color('button_dir_up')); g:fill_path(shapes.button_dir_up())
-    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.button_dir_up_content())
+    g:set_color(self:state_color('button_dir_up')); g:fill_path(shapes.paths.button_dir_up)
+    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.button_dir_up_content)
 
-    g:set_color(self:state_color('button_dir_right')); g:fill_path(shapes.button_dir_right())
-    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.button_dir_right_content())
+    g:set_color(self:state_color('button_dir_right')); g:fill_path(shapes.paths.button_dir_right)
+    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.button_dir_right_content)
 
-    g:set_color(self:state_color('button_dir_down')); g:fill_path(shapes.button_dir_down())
-    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.button_dir_down_content())
+    g:set_color(self:state_color('button_dir_down')); g:fill_path(shapes.paths.button_dir_down)
+    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.button_dir_down_content)
 
-    g:set_color(self:state_color('button_action_square')); g:fill_path(shapes.button_action_square())
+    g:set_color(self:state_color('button_action_square')); g:fill_path(shapes.paths.button_action_square)
     g:set_color(table.unpack(self.color_inlay)); g:stroke_rect(415.7, 96.7, 20, 20, 1)
 
-    g:set_color(self:state_color('button_action_cross')); g:fill_path(shapes.button_action_cross())
+    g:set_color(self:state_color('button_action_cross')); g:fill_path(shapes.paths.button_action_cross)
     g:set_color(table.unpack(self.color_inlay)); g:draw_line(458, 139, 476, 157, 1); g:draw_line(458, 157, 476, 139, 1)
 
-    g:set_color(self:state_color('button_action_triangle')); g:fill_path(shapes.button_action_triangle())
-    g:set_color(table.unpack(self.color_inlay)); g:stroke_path(shapes.button_action_triangle_content(), 1)
+    g:set_color(self:state_color('button_action_triangle')); g:fill_path(shapes.paths.button_action_triangle)
+    g:set_color(table.unpack(self.color_inlay)); g:stroke_path(shapes.paths.button_action_triangle_content, 1)
 
-    g:set_color(self:state_color('button_action_circle')); g:fill_path(shapes.button_action_circle())
+    g:set_color(self:state_color('button_action_circle')); g:fill_path(shapes.paths.button_action_circle)
     g:set_color(table.unpack(self.color_inlay)); g:stroke_ellipse(497, 94, 23.8, 23.8, 1)
 
     g:translate(self.state.stick_l_x, -self.state.stick_l_y)
-    g:set_color(self:state_color('button_stick_l')); g:fill_path(shapes.stick_l())
-    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.stick_l_content())
+    g:set_color(self:state_color('button_stick_l')); g:fill_path(shapes.paths.stick_l)
+    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.stick_l_content)
     g:translate(-self.state.stick_l_x+self.state.stick_r_x, self.state.stick_l_y-self.state.stick_r_y)
-    g:set_color(self:state_color('button_stick_r')); g:fill_path(shapes.stick_r())
-    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.stick_r_content())
+    g:set_color(self:state_color('button_stick_r')); g:fill_path(shapes.paths.stick_r)
+    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.stick_r_content)
     g:translate(-self.state.stick_r_x, self.state.stick_r_y)
 
     -- local lookat_center = {289, 63}
