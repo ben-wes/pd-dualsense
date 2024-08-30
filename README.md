@@ -1,6 +1,8 @@
 # pd-dualsense
 Pd abstraction and Pd-Lua object to connect and display Sony DualSense controller
 
+![dualsense/display.pd screenshot](dualsense-display.png)
+
 ## usage
 
 * put files in `/dualsense` folder in on of Pd's paths
