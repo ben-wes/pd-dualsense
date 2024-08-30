@@ -326,10 +326,10 @@ function ds:paint(g)
             local strokewidth = 1
             if i<=4 then strokewidth = 4 end
             g:draw_line(
-                math.floor(-from[1] * scale_from + lookat_center[1]),
-                math.floor(-from[3] * scale_from + lookat_center[2]),
-                math.floor(-to[1] * scale_to + lookat_center[1]),
-                math.floor(-to[3] * scale_to + lookat_center[2]), strokewidth)
+                -from[1] * scale_from + lookat_center[1],
+                -from[3] * scale_from + lookat_center[2],
+                -to[1] * scale_to + lookat_center[1],
+                -to[3] * scale_to + lookat_center[2], strokewidth)
         end
     end
 
