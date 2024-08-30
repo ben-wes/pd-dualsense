@@ -9,6 +9,7 @@ function ds:initialize(sel, atoms)
     self.delay_time = 33.333333
     self.time = 0
     self.googly = 0
+    self.track_orientation = false
     self.touch_radius = 20
     self.outlines = false
     self.color_active = {255, 77, 100}
@@ -119,6 +120,7 @@ function ds:in_1_dpad(atoms)
 end
 
 function ds:in_1_gyro(atoms)
+    if not self.track_orientation then self.track_orientation = true end
     if atoms[1] == 'x' then self.state.gyro_x = atoms[2] end
     if atoms[1] == 'y' then self.state.gyro_y = atoms[2] end
     if atoms[1] == 'z' then self.state.gyro_z = atoms[2] end
@@ -288,45 +290,47 @@ function ds:paint(g)
         g:translate(self.state.stick_r_x * self.googly, -self.state.stick_r_y * self.googly)
     g:translate(-self.state.stick_r_x, self.state.stick_r_y)
 
-    local lookat_center = {289, 63}
-    local lookat_radius = 20
+    if self.track_orientation then
+        local lookat_center = {289, 63}
+        local lookat_radius = 24
 
-    local points = {
-        {1, -1, 1},
-        {-1, -1, 1},
-        {-1, -1, -1},
-        {1, -1, -1},
-        {1, 1, 1},
-        {-1, 1, 1},
-        {-1, 1, -1},
-        {1, 1, -1}
-    }
+        local points = {
+            {1, -1, 1},
+            {-1, -1, 1},
+            {-1, -1, -1},
+            {1, -1, -1},
+            {1, 1, 1},
+            {-1, 1, 1},
+            {-1, 1, -1},
+            {1, 1, -1}
+        }
 
-    for i, point in ipairs(points) do
-        point[1] = point[1] - self.state.jerk_x * 3
-        point[2] = point[2] - self.state.jerk_y * 3
-        point[3] = point[3] - self.state.jerk_z * 3
-        points[i] = shapes.rotateVectorByQuaternion(point, {
-            self.state.quat_w,
-            self.state.quat_x,
-            -self.state.quat_y,
-            -self.state.quat_z
-        })
-    end
+        for i, point in ipairs(points) do
+            point[1] = point[1] - self.state.jerk_x * 3
+            point[2] = point[2] - self.state.jerk_y * 3
+            point[3] = point[3] - self.state.jerk_z * 3
+            points[i] = shapes.rotateVectorByQuaternion(point, {
+                self.state.quat_w,
+                self.state.quat_x,
+                -self.state.quat_y,
+                -self.state.quat_z
+            })
+        end
 
-    g:set_color(255, 255, 255)
-    for i, connection in ipairs(self.connections) do
-        local from = points[connection[1]]
-        local to = points[connection[2]]
-        local scale_from = 5 / (5 - from[2]) * lookat_radius
-        local scale_to = 5 / (5 - to[2]) * lookat_radius
-        local strokewidth = 1
-        if i<=4 then strokewidth = 3 end
-        g:draw_line(
-            -from[1] * scale_from + lookat_center[1],
-            -from[3] * scale_from + lookat_center[2],
-            -to[1] * scale_to + lookat_center[1],
-            -to[3] * scale_to + lookat_center[2], strokewidth)
+        g:set_color(255, 255, 255)
+        for i, connection in ipairs(self.connections) do
+            local from = points[connection[1]]
+            local to = points[connection[2]]
+            local scale_from = 5 / (5 - from[2]) * lookat_radius
+            local scale_to = 5 / (5 - to[2]) * lookat_radius
+            local strokewidth = 1
+            if i<=4 then strokewidth = 4 end
+            g:draw_line(
+                math.floor(-from[1] * scale_from + lookat_center[1]),
+                math.floor(-from[3] * scale_from + lookat_center[2]),
+                math.floor(-to[1] * scale_to + lookat_center[1]),
+                math.floor(-to[3] * scale_to + lookat_center[2]), strokewidth)
+        end
     end
 
     if self.state.pad1_touch > 0 then
