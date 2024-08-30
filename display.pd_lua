@@ -12,9 +12,10 @@ function ds:initialize(sel, atoms)
     self.track_orientation = false
     self.touch_radius = 20
     self.outlines = false
-    self.color_active = {255, 77, 100}
+    self.color_case = {35, 37, 38}
     -- self.color_active = {100, 180, 77}
     self.color_cover = {220, 224, 230}
+    self.color_cube = self.color_case
     -- self.color_cover = {20, 20, 20}
     self.color_button = {255, 255, 255}
     self.color_inlay = {0, 0, 0}
@@ -22,8 +23,7 @@ function ds:initialize(sel, atoms)
     -- self.color_led_bright = {180, 10, 30}
     self.color_led_dark = {35, 50, 100}
     self.color_led_bright = {35, 70, 180}
-    self.color_case = {35, 37, 38}
-    self.normalized_accel = {0, 1, 0}
+    self.color_active = {255, 77, 100}
 
     self.state = {
         button_dir_left = 0,
@@ -225,7 +225,8 @@ function ds:paint(g)
     g:translate(22, 6)
 
     g:set_color(table.unpack(self.color_case)); g:fill_path(shapes.paths.background)
-    g:set_color(table.unpack(self:blend_color(self.color_led_dark, self.color_led_bright, math.sin(self.time) * 0.5 + 0.5)))
+    local color_led = self:blend_color(self.color_led_dark, self.color_led_bright, math.sin(self.time) * 0.5 + 0.5)
+    g:set_color(table.unpack(color_led))
     g:fill_path(shapes.paths.led)
 
     g:translate(0, self.state.button_l1*3)
@@ -306,9 +307,9 @@ function ds:paint(g)
         }
 
         for i, point in ipairs(points) do
-            point[1] = point[1] - self.state.jerk_x * 3
-            point[2] = point[2] - self.state.jerk_y * 3
-            point[3] = point[3] - self.state.jerk_z * 3
+            point[1] = point[1] - self.state.jerk_x * 40
+            point[2] = point[2] - self.state.jerk_y * 40
+            point[3] = point[3] - self.state.jerk_z * 40
             points[i] = shapes.rotateVectorByQuaternion(point, {
                 self.state.quat_w,
                 self.state.quat_x,
@@ -317,14 +318,14 @@ function ds:paint(g)
             })
         end
 
-        g:set_color(255, 255, 255)
+        g:set_color(table.unpack(color_led))
         for i, connection in ipairs(self.connections) do
             local from = points[connection[1]]
             local to = points[connection[2]]
             local scale_from = 120 / (120 - from[2])
             local scale_to = 120 / (120 - to[2])
             local strokewidth = 1
-            if i<=4 then strokewidth = 4 end
+            if i<=4 then strokewidth = 3 end
             g:draw_line(
                 -from[1] * scale_from + lookat_center[1],
                 -from[3] * scale_from + lookat_center[2],
