@@ -8,11 +8,12 @@ function ds:initialize(sel, atoms)
     self:set_size(self.size[1], self.size[2])
     self.delay_time = 33.333333
     self.time = 0
+    self.googly = 0
     self.touch_radius = 20
     self.outlines = false
     self.color_active = {255, 77, 100}
     -- self.color_active = {100, 180, 77}
-    self.color_cover = {223, 227, 234}
+    self.color_cover = {220, 224, 230}
     -- self.color_cover = {20, 20, 20}
     self.color_button = {255, 255, 255}
     self.color_inlay = {0, 0, 0}
@@ -60,8 +61,22 @@ function ds:initialize(sel, atoms)
         gyro_z = 0,
         accel_x = 0,
         accel_y = 0,
-        accel_z = 0
+        accel_z = 0,
+        quat_w = 0,
+        quat_x = 0,
+        quat_y = 0,
+        quat_z = 0,
+        jerk_x = 0,
+        jerk_y = 0,
+        jerk_z = 0
     }
+
+    self.connections = {
+        {5, 6}, {6, 7}, {7, 8}, {8, 5}, -- top
+        {1, 2}, {2, 3}, {3, 4}, {4, 1}, -- bottom
+        {1, 5}, {2, 6}, {3, 7}, {4, 8}  -- connecting bottom w/ top
+    }
+
     return true
 end
 
@@ -89,6 +104,10 @@ function ds:state_color(input, fg, bg)
     return table.unpack(self:blend_color(bg, fg, self.state[input]))
 end
 
+function ds:in_1_googly(atoms)
+    self.googly = atoms[1]
+end
+
 function ds:in_1_dpad(atoms)
     if atoms[1] == 'x' then
         self.state.button_dir_left = math.max(atoms[2] * -1)
@@ -109,6 +128,19 @@ function ds:in_1_accel(atoms)
     if atoms[1] == 'x' then self.state.accel_x = atoms[2] end
     if atoms[1] == 'y' then self.state.accel_y = atoms[2] end
     if atoms[1] == 'z' then self.state.accel_z = atoms[2] end
+end
+
+function ds:in_1_quat(atoms)
+    if atoms[1] == 'w' then self.state.quat_w = atoms[2] end
+    if atoms[1] == 'x' then self.state.quat_x = atoms[2] end
+    if atoms[1] == 'y' then self.state.quat_y = atoms[2] end
+    if atoms[1] == 'z' then self.state.quat_z = atoms[2] end
+end
+
+function ds:in_1_jerk(atoms)
+    if atoms[1] == 'x' then self.state.jerk_x = atoms[2] end
+    if atoms[1] == 'y' then self.state.jerk_y = atoms[2] end
+    if atoms[1] == 'z' then self.state.jerk_z = atoms[2] end
 end
 
 function ds:in_1_button(atoms)
@@ -245,64 +277,70 @@ function ds:paint(g)
 
     g:translate(self.state.stick_l_x, -self.state.stick_l_y)
     g:set_color(self:state_color('button_stick_l')); g:fill_path(shapes.paths.stick_l)
-    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.stick_l_content)
-    g:translate(-self.state.stick_l_x+self.state.stick_r_x, self.state.stick_l_y-self.state.stick_r_y)
+        g:translate(self.state.stick_l_x * self.googly, -self.state.stick_l_y * self.googly)
+        g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.stick_l_content)
+        g:translate(-self.state.stick_l_x * self.googly, self.state.stick_l_y * self.googly)
+    g:translate(-self.state.stick_l_x, self.state.stick_l_y)
+    g:translate(self.state.stick_r_x, -self.state.stick_r_y)
     g:set_color(self:state_color('button_stick_r')); g:fill_path(shapes.paths.stick_r)
-    g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.stick_r_content)
+        g:translate(self.state.stick_r_x * self.googly, -self.state.stick_r_y * self.googly)
+        g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.stick_r_content)
+        g:translate(self.state.stick_r_x * self.googly, -self.state.stick_r_y * self.googly)
     g:translate(-self.state.stick_r_x, self.state.stick_r_y)
 
-    -- local lookat_center = {289, 63}
-    -- local lookat_radius = 20
+    local lookat_center = {289, 63}
+    local lookat_radius = 20
 
-    -- local l = 1 -- /math.sqrt(3)
-    -- local points = {
-    --     {l, l, -l},
-    --     {-l, l, -l},
-    --     {-l, -l, -l},
-    --     {l, -l, -l},
-    --     {l, l, l},
-    --     {-l, l, l},
-    --     {-l, -l, l},
-    --     {l, -l, l}
-    -- }
+    local points = {
+        {1, -1, 1},
+        {-1, -1, 1},
+        {-1, -1, -1},
+        {1, -1, -1},
+        {1, 1, 1},
+        {-1, 1, 1},
+        {-1, 1, -1},
+        {1, 1, -1}
+    }
 
-    -- local connections = {
-    --     {5, 6}, {6, 7}, {7, 8}, {8, 5}, -- top
-    --     {1, 2}, {2, 3}, {3, 4}, {4, 1}, -- bottom
-    --     {1, 5}, {2, 6}, {3, 7}, {4, 8}  -- connecting bottom w/ top
-    -- }
+    for i, point in ipairs(points) do
+        point[1] = point[1] - self.state.jerk_x * 3
+        point[2] = point[2] - self.state.jerk_y * 3
+        point[3] = point[3] - self.state.jerk_z * 3
+        points[i] = shapes.rotateVectorByQuaternion(point, {
+            self.state.quat_w,
+            self.state.quat_x,
+            -self.state.quat_y,
+            -self.state.quat_z
+        })
+    end
 
-    -- for i, point in ipairs(points) do
-    --     points[i] = shapes.pitchRollTo(point, lookat)
-    -- end
-
-    -- g:set_color(255, 255, 255)
-    -- for i, connection in ipairs(connections) do
-    --     local from = points[connection[1]]
-    --     local to = points[connection[2]]
-    --     local scale_from = 5 / (5 - from[2]) * lookat_radius
-    --     local scale_to = 5 / (5 - to[2]) * lookat_radius
-    --     local strokewidth = 1
-    --     if i<=4 then strokewidth = 3 end
-    --     g:draw_line(
-    --         -from[1] * scale_from + lookat_center[1],
-    --         -from[3] * scale_from + lookat_center[2],
-    --         -to[1] * scale_to + lookat_center[1],
-    --         -to[3] * scale_to + lookat_center[2], strokewidth)
-    -- end
+    g:set_color(255, 255, 255)
+    for i, connection in ipairs(self.connections) do
+        local from = points[connection[1]]
+        local to = points[connection[2]]
+        local scale_from = 5 / (5 - from[2]) * lookat_radius
+        local scale_to = 5 / (5 - to[2]) * lookat_radius
+        local strokewidth = 1
+        if i<=4 then strokewidth = 3 end
+        g:draw_line(
+            -from[1] * scale_from + lookat_center[1],
+            -from[3] * scale_from + lookat_center[2],
+            -to[1] * scale_to + lookat_center[1],
+            -to[3] * scale_to + lookat_center[2], strokewidth)
+    end
 
     if self.state.pad1_touch > 0 then
         g:set_color(self:state_color('pad1_touch', self.color_active, self.color_cover))
-        g:fill_ellipse(self.state.pad1_x * 180 + 190, self.state.pad1_y * 100 + 10, self.touch_radius, self.touch_radius)
+        g:fill_ellipse(self.state.pad1_x * 180 + 190, self.state.pad1_y * 96 + 10, self.touch_radius, self.touch_radius)
         g:set_color(self:state_color('pad1_touch', self.color_button, self.color_cover))
-        g:draw_text("1", self.state.pad1_x * 180 + 197, self.state.pad1_y * 100 + 14, 10, 12)
+        g:draw_text("1", self.state.pad1_x * 180 + 197, self.state.pad1_y * 96 + 14, 10, 12)
     end
 
     if self.state.pad2_touch > 0 then
         g:set_color(self:state_color('pad2_touch', self.color_active, self.color_cover))
-        g:fill_ellipse(self.state.pad2_x * 180 + 190, self.state.pad2_y * 100 + 10, self.touch_radius, self.touch_radius)
+        g:fill_ellipse(self.state.pad2_x * 180 + 190, self.state.pad2_y * 96 + 10, self.touch_radius, self.touch_radius)
         g:set_color(self:state_color('pad2_touch', self.color_button, self.color_cover))
-        g:draw_text("2", self.state.pad2_x * 180 + 197, self.state.pad2_y * 100 + 14, 10, 12)
+        g:draw_text("2", self.state.pad2_x * 180 + 197, self.state.pad2_y * 96 + 14, 10, 12)
     end
 
     -- g:reset_transform()

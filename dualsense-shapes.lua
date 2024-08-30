@@ -65,12 +65,25 @@ function shapes.quaternionFromAxisAngle(axis, angle)
 end
 
 function shapes.quaternionMultiply(q1, q2)
-    return shapes.normalizeQuaternion({
+    return {
         q1[1] * q2[1] - q1[2] * q2[2] - q1[3] * q2[3] - q1[4] * q2[4],
         q1[1] * q2[2] + q1[2] * q2[1] + q1[3] * q2[4] - q1[4] * q2[3],
         q1[1] * q2[3] - q1[2] * q2[4] + q1[3] * q2[1] + q1[4] * q2[2],
         q1[1] * q2[4] + q1[2] * q2[3] - q1[3] * q2[2] + q1[4] * q2[1]
-    })
+    }
+end
+
+function shapes.quaternionScale(q, f)
+    return {q[1] * f, q[2] * f, q[3] * f, q[4] * f}
+end
+
+function shapes.quaternionAdd(q1, q2)
+    return {
+        q1[1] + q2[1],
+        q1[1] + q2[2],
+        q1[1] + q2[3],
+        q1[1] + q2[4]
+    }
 end
 
 function shapes.rotateVectorByQuaternion(vec, quat)
