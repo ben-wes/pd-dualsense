@@ -1,5 +1,5 @@
-local ds = pd.Class:new():register('dualsense-display')
-local shapes = require('dualsense-shapes')
+local ds = pd.Class:new():register('display')
+local shapes = require('shapes')
 
 function ds:initialize(sel, atoms)
     self.inlets = 1
@@ -295,14 +295,14 @@ function ds:paint(g)
         local lookat_radius = 24
 
         local points = {
-            {1, -1, 1},
-            {-1, -1, 1},
-            {-1, -1, -1},
-            {1, -1, -1},
-            {1, 1, 1},
-            {-1, 1, 1},
-            {-1, 1, -1},
-            {1, 1, -1}
+            {lookat_radius, -lookat_radius, lookat_radius},
+            {-lookat_radius, -lookat_radius, lookat_radius},
+            {-lookat_radius, -lookat_radius, -lookat_radius},
+            {lookat_radius, -lookat_radius, -lookat_radius},
+            {lookat_radius, lookat_radius, lookat_radius},
+            {-lookat_radius, lookat_radius, lookat_radius},
+            {-lookat_radius, lookat_radius, -lookat_radius},
+            {lookat_radius, lookat_radius, -lookat_radius}
         }
 
         for i, point in ipairs(points) do
@@ -321,8 +321,8 @@ function ds:paint(g)
         for i, connection in ipairs(self.connections) do
             local from = points[connection[1]]
             local to = points[connection[2]]
-            local scale_from = 5 / (5 - from[2]) * lookat_radius
-            local scale_to = 5 / (5 - to[2]) * lookat_radius
+            local scale_from = 120 / (120 - from[2])
+            local scale_to = 120 / (120 - to[2])
             local strokewidth = 1
             if i<=4 then strokewidth = 4 end
             g:draw_line(
