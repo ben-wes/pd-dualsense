@@ -9,7 +9,7 @@ Pd abstraction and Pd-Lua object to connect and display Sony DualSense controlle
 
 * put files in `/dualsense` folder in on of Pd's paths
 * create display object via `[dualsense/display]`
-* create connection object via `[dualsense/connect]` - its output can be connected to the display object. optional argument `orientation` activates tracking of movement and orientation
+* create hid reader object via `[dualsense/listen]` - its output can be connected to the display object. optional argument `orientation` activates tracking of movement and orientation
 * requires a bunch of externals ... pdlua, hidraw, command (maybe more - should all be on deken)
 
 ## todos
