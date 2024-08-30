@@ -3,6 +3,8 @@ Pd abstraction and Pd-Lua object to connect and display Sony DualSense controlle
 
 ![dualsense/display.pd screenshot](dualsense-display.png)
 
+*(screenshot made with plugdata)*
+
 ## usage
 
 * put files in `/dualsense` folder in on of Pd's paths
