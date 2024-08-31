@@ -8,6 +8,15 @@
 #X obj 206 198 dualsense/display;
 #X msg 373 136 reload;
 #X obj 95 109 dualsense/listen orientation;
+#X msg 435 135 googly \$1;
+#X obj 438 113 hsl 136 16 0 1 0 0 empty empty empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
+#X obj 380 50 hsl 136 16 -1 1 0 0 empty empty empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
+#X msg 377 72 stick l x \$1;
+#X msg 377 28 0;
+#X msg 625 75 color reset;
+#X msg 94 202 button ps 1;
+#X msg 486 80 color theme dark;
+#X msg 600 103 color led 200 255 0;
 #X connect 0 0 8 0;
 #X connect 1 0 6 0;
 #X connect 2 0 1 0;
@@ -17,3 +26,12 @@
 #X connect 7 0 6 0;
 #X connect 8 0 4 0;
 #X connect 8 0 6 0;
+#X connect 9 0 6 0;
+#X connect 10 0 9 0;
+#X connect 11 0 12 0;
+#X connect 12 0 6 0;
+#X connect 13 0 11 0;
+#X connect 14 0 6 0;
+#X connect 15 0 6 0;
+#X connect 16 0 6 0;
+#X connect 17 0 6 0;
