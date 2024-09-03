@@ -8,11 +8,11 @@ function ds:initialize(sel, atoms)
     self.size = {619, 384}
     self.scale = 1
     self:set_size(self.size[1], self.size[2])
-    self.delay_time = 33.333333
+    self.delay_time = 25
     self.time = 0
     self.googly = 0
     self.track_orientation = false
-    self.touch_radius = 20
+    self.touch_size = 20
     self:reset_colors()
     self.state = {
         button_dir_left = 0,
@@ -109,7 +109,7 @@ function ds:reset_colors(theme_name)
         dark = {
             cover = {20, 20, 20},
             active = {255, 0, 0},
-            button = {96, 96, 96},
+            button = {64, 64, 64},
             print = {196, 196, 196},
             led = {180, 10, 30},
             inlay = {0, 0, 0},
@@ -405,14 +405,14 @@ function ds:paint(g)
 
     if state.pad1_touch > 0 then
         g:set_color(self:state_color("pad1_touch", self.color_active, self.color_cover))
-        g:fill_ellipse(state.pad1_x * 180 + 190, state.pad1_y * 96 + 10, self.touch_radius, self.touch_radius)
+        g:fill_ellipse(state.pad1_x * 180 + 190, state.pad1_y * 96 + 10, self.touch_size, self.touch_size)
         g:set_color(table.unpack(self.color_cover))
         g:draw_text("1", state.pad1_x * 180 + 197, state.pad1_y * 96 + 14, 10, 12)
     end
 
     if state.pad2_touch > 0 then
         g:set_color(self:state_color("pad2_touch", self.color_active, self.color_cover))
-        g:fill_ellipse(state.pad2_x * 180 + 190, state.pad2_y * 96 + 10, self.touch_radius, self.touch_radius)
+        g:fill_ellipse(state.pad2_x * 180 + 190, state.pad2_y * 96 + 10, self.touch_size, self.touch_size)
         g:set_color(table.unpack(self.color_cover))
         g:draw_text("2", state.pad2_x * 180 + 197, state.pad2_y * 96 + 14, 10, 12)
     end
