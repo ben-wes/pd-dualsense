@@ -8,7 +8,7 @@ function ds:initialize(sel, atoms)
     self.size = {619, 384}
     self.scale = 1
     self:set_size(self.size[1], self.size[2])
-    self.delay_time = 25
+    self.delay_time = 30
     self.time = 0
     self.googly = 0
     self.track_orientation = false
@@ -56,9 +56,9 @@ function ds:initialize(sel, atoms)
         quat_x = 0,
         quat_y = 0,
         quat_z = 0,
-        jerk_x = 0,
-        jerk_y = 0,
-        jerk_z = 0,
+        impulse_x = 0,
+        impulse_y = 0,
+        impulse_z = 0,
     }
 
     self.cube_center = {289, 63}
@@ -207,10 +207,10 @@ function ds:in_1_quat(atoms)
     if atoms[1] == "z" then self.state.quat_z = atoms[2] end
 end
 
-function ds:in_1_jerk(atoms)
-    if atoms[1] == "x" then self.state.jerk_x = atoms[2] end
-    if atoms[1] == "y" then self.state.jerk_y = atoms[2] end
-    if atoms[1] == "z" then self.state.jerk_z = atoms[2] end
+function ds:in_1_impulse(atoms)
+    if atoms[1] == "x" then self.state.impulse_x = atoms[2] end
+    if atoms[1] == "y" then self.state.impulse_y = atoms[2] end
+    if atoms[1] == "z" then self.state.impulse_z = atoms[2] end
 end
 
 function ds:in_1_button(atoms)
@@ -286,9 +286,9 @@ end
 function ds:transform_point(point)
     local outpoint = {0, 0, 0}
     local state = self.state
-    outpoint[1] = point[1] - state.jerk_x * 2
-    outpoint[2] = point[2] - state.jerk_y * 2
-    outpoint[3] = point[3] - state.jerk_z * 2
+    outpoint[1] = point[1] - state.impulse_x * 2
+    outpoint[2] = point[2] - state.impulse_y * 2
+    outpoint[3] = point[3] - state.impulse_z * 2
     outpoint = shapes.rotateVectorByQuaternion(outpoint, {
         state.quat_w,
         state.quat_x,
