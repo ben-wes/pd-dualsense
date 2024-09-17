@@ -1,5 +1,5 @@
-# pd-dualsense
-Pd abstraction and Pd-Lua object to connect and display Sony DualSense controller
+# dualsense library for Pd
+Pd external and Pd-Lua object to connect and display Sony DualSense controller
 
 ![dualsense/display.pd screenshot](dualsense-display.png)
 
@@ -7,11 +7,13 @@ Pd abstraction and Pd-Lua object to connect and display Sony DualSense controlle
 
 ## usage
 
-* put files in `/dualsense` folder in one of Pd's paths for externals
-* create hid reader object via `[dualsense/listen]` - its output can be connected to the `[dualsense/display]` object. optional argument `orientation` activates tracking of movement and orientation
-* requires externals: pdlua and hidraw (fork at https://github.com/ben-wes/pd-hidraw - see releases)
+* extract `dualsense` from release in your Pd externals folder.
+* add `dualsense` to your paths or add `declare -path dualsense` to your patch
+* create `[dslink]` object (its output can be connected to the `[dsshow]` object)
+* send `open, poll 10` message to connect to controller and poll data in 10ms intervals
+* requires `pdlua` external for display
 
 ## todos
 
-* proper help files and examples will follow (mainly for documenting the output messages of the [dualsense/connect] object)
+* proper help files and examples will follow (mainly for documenting the output messages of the [dslink] object)
 * display object is still missing many input messages for customization
