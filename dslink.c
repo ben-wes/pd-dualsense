@@ -416,9 +416,9 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     uint16_t gyro_y_raw = (uint16_t)((buf[offset + 19]) | buf[offset + 18] << 8);
     uint16_t gyro_z_raw = (uint16_t)((buf[offset + 21]) | buf[offset + 20] << 8);
 
-    t_float gyro_x = (t_float)((gyro_x_raw > 32767) ? gyro_x_raw - 65536 : gyro_x_raw) / 32767.0f;
-    t_float gyro_y = (t_float)((gyro_y_raw > 32767) ? gyro_y_raw - 65536 : gyro_y_raw) / 32767.0f;
-    t_float gyro_z = (t_float)((gyro_z_raw > 32767) ? gyro_z_raw - 65536 : gyro_z_raw) / 32767.0f;
+    t_float gyro_x = (t_float)((gyro_x_raw > 32767) ? gyro_x_raw - 65536 : gyro_x_raw) / 8192.0f;
+    t_float gyro_y = (t_float)((gyro_y_raw > 32767) ? gyro_y_raw - 65536 : gyro_y_raw) / 8192.0f;
+    t_float gyro_z = (t_float)((gyro_z_raw > 32767) ? gyro_z_raw - 65536 : gyro_z_raw) / 8192.0f;
 
     output_value_message(x->data_out, (const char*[]){"gyro", "x"}, 2, gyro_x);
     output_value_message(x->data_out, (const char*[]){"gyro", "y"}, 2, gyro_y);
@@ -429,9 +429,9 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     uint16_t accel_y_raw = (uint16_t)((buf[offset + 25]) | buf[offset + 24] << 8);
     uint16_t accel_z_raw = (uint16_t)((buf[offset + 27]) | buf[offset + 26] << 8);
 
-    t_float accel_x = (t_float)((accel_x_raw > 32767) ? accel_x_raw - 65536 : accel_x_raw) / 32767.0f;
-    t_float accel_y = (t_float)((accel_y_raw > 32767) ? accel_y_raw - 65536 : accel_y_raw) / 32767.0f;
-    t_float accel_z = (t_float)((accel_z_raw > 32767) ? accel_z_raw - 65536 : accel_z_raw) / 32767.0f;
+    t_float accel_x = (t_float)((accel_x_raw > 32767) ? accel_x_raw - 65536 : accel_x_raw) / 8192.0f;
+    t_float accel_y = (t_float)((accel_y_raw > 32767) ? accel_y_raw - 65536 : accel_y_raw) / 8192.0f;
+    t_float accel_z = (t_float)((accel_z_raw > 32767) ? accel_z_raw - 65536 : accel_z_raw) / 8192.0f;
 
     output_value_message(x->data_out, (const char*[]){"accel", "x"}, 2, accel_x);
     output_value_message(x->data_out, (const char*[]){"accel", "y"}, 2, accel_y);
