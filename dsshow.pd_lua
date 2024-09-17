@@ -1,4 +1,4 @@
-local ds = pd.Class:new():register("display")
+local ds = pd.Class:new():register("dsshow")
 local shapes = require("shapes")
 
 function ds:initialize(sel, atoms)
