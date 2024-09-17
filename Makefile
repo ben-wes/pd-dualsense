@@ -30,6 +30,8 @@ datafiles = \
 	dsshow.pd_lua \
 	dsshow-shapes.lua \
 	dslink-help.pd \
+	sensors2quat.pd \
+	sensors2impulse.pd \
 	${empty}
 
 objectsdir = ./build
