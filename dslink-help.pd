@@ -13,8 +13,8 @@
 #X msg 600 99 color reset;
 #X msg 600 65 color theme dark;
 #X msg 600 128 color led 200 255 0;
-#X msg 764 113 \; pdluax reload;
-#X msg 764 81 reload;
+#X msg 806 17 \; pdluax reload;
+#X msg 600 40 reload;
 #X msg 281 81 size 200;
 #X msg 372 113 reinit;
 #X msg 261 53 size reset;
