@@ -3,14 +3,6 @@
  * based on hidraw by Lucas Cordiviola <lucarda27@hotmail.com> 2022
 */
 
-// TODOS
-// * add separate gyro/accelerometer to quaternion abstraction
-// * add output on change option?
-// * add version and proper
-// * add close message
-// * state output on the right? bt/usb, battery, etc ...
-// * add automatic connection attempts after creation
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -164,7 +156,6 @@ static void dslink_open(t_dslink *x) {
     x->output_buf[OFFSET_MUTE_LED] = 0x00; // Mute LED off
     dslink_write(x);
     x->output_buf[1] = 0x77; // release LED
-
 
     hid_set_nonblocking(x->handle, 1);
 }
@@ -401,7 +392,7 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     output_value_message(x->data_out, (const char*[]){"button", "l3"}, 2, (buf[offset + 8] & 0x40) != 0);
     output_value_message(x->data_out, (const char*[]){"button", "r3"}, 2, (buf[offset + 8] & 0x80) != 0);
     output_value_message(x->data_out, (const char*[]){"button", "ps"}, 2, (buf[offset + 9] & 0x01) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "touchpad"}, 2, (buf[offset + 9] & 0x02) != 0);
+    output_value_message(x->data_out, (const char*[]){"button", "pad"}, 2, (buf[offset + 9] & 0x02) != 0);
     output_value_message(x->data_out, (const char*[]){"button", "mute"}, 2, (buf[offset + 9] & 0x04) != 0);
 
     // D-pad
