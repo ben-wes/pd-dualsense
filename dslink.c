@@ -78,7 +78,7 @@ t_class *dslink_class;
 static void dslink_open(t_dslink *x);
 static void dslink_close(t_dslink *x);
 static void dslink_poll(t_dslink *x, t_floatarg f);
-static void dslink_read(t_dslink *x);
+static int dslink_read(t_dslink *x);
 static void dslink_write(t_dslink *x);
 static void dslink_free(t_dslink *x);
 static void dslink_set_led_color(t_dslink *x, t_floatarg r, t_floatarg g, t_floatarg b);
@@ -178,17 +178,14 @@ static void dslink_close(t_dslink *x) {
 
 static void dslink_poll(t_dslink *x, t_floatarg f) {
     x->poll_interval = f;
-    if (f > 0) {
-        clock_delay(x->poll_clock, 0);
-    } else {
-        clock_unset(x->poll_clock);
-    }
+    if (f > 0) clock_delay(x->poll_clock, 0);
+    else clock_unset(x->poll_clock);
 }
 
-static void dslink_read(t_dslink *x) {
+static inline int dslink_read(t_dslink *x) {
     if (!x->handle) {
         pd_error(x, "dslink: no device opened");
-        return;
+        return 0;
     }
 
     int res = hid_read(x->handle, x->input_buf, INPUT_REPORT_BT_SIZE);
@@ -201,6 +198,13 @@ static void dslink_read(t_dslink *x) {
     if (x->poll_interval > 0) {
         clock_delay(x->poll_clock, x->poll_interval);
     }
+    return 1;
+}
+
+static void dslink_tick(t_dslink *x)
+{
+    if (dslink_read(x))
+        clock_delay(x->poll_clock, x->poll_interval);
 }
 
 static void dslink_write(t_dslink *x) {
@@ -348,7 +352,7 @@ static void *dslink_new(void) {
     x->data_out = outlet_new(&x->x_obj, &s_anything);
     // x->debug_outlet = outlet_new(&x->x_obj, &s_list);
 
-    x->poll_clock = clock_new(x, (t_method)dslink_read);
+    x->poll_clock = clock_new(x, (t_method)dslink_tick);
     x->poll_interval = 0;
     x->handle = NULL;
     x->sequence_number = 0;
@@ -356,43 +360,7 @@ static void *dslink_new(void) {
     return (void *)x;
 }
 
-#if defined(_WIN32)
-__declspec(dllexport)
-#else
-__attribute__((visibility("default")))
-#endif
-void dslink_setup(void) {
-    dslink_class = class_new(gensym("dslink"),
-                                (t_newmethod)dslink_new,
-                                (t_method)dslink_free,
-                                sizeof(t_dslink),
-                                CLASS_DEFAULT,
-                                0);
-
-    class_addmethod(dslink_class, (t_method)dslink_open, gensym("open"), 0);
-    class_addmethod(dslink_class, (t_method)dslink_close, gensym("close"), 0);
-    class_addmethod(dslink_class, (t_method)dslink_poll, gensym("poll"), A_FLOAT, 0);
-    class_addmethod(dslink_class, (t_method)dslink_set_motors, gensym("motors"), A_FLOAT, A_FLOAT, 0);
-    class_addmethod(dslink_class, (t_method)dslink_set_led_color, gensym("led_color"), A_FLOAT, A_FLOAT, A_FLOAT, 0);
-    class_addmethod(dslink_class, (t_method)dslink_set_mute_led, gensym("mute_led"), A_FLOAT, 0);
-    class_addmethod(dslink_class, (t_method)dslink_set_player_leds, gensym("player_leds"), A_FLOAT, 0);
-    class_addmethod(dslink_class, (t_method)dslink_set_trigger, gensym("left_trigger"), A_GIMME, 0);
-    class_addmethod(dslink_class, (t_method)dslink_set_trigger, gensym("right_trigger"), A_GIMME, 0);
-
-    post("dslink external for Pure Data");
-    post("compatible with Sony DualSense controller");
-
-    hid_init();
-
-#if defined(__APPLE__)
-    // To work properly needs to be called before hid_open/hid_open_path after hid_init.
-    // Best/recommended option - call it right after hid_init.
-    hid_darwin_set_open_exclusive(0);
-#endif
-}
-
-// Utility function implementations
-
+// Utility functions
 static uint32_t crc32_compute(const uint8_t *data, size_t len) {
     uint32_t crc = 0xFFFFFFFF;
     for (size_t i = 0; i < len; i++) {
@@ -529,4 +497,42 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
 
     // Haptic feedback motors active status
     output_value_message(x->data_out, (const char*[]){"haptic", "active"}, 2, (buf[offset + 54] & 0x02) != 0);
+}
+
+
+#if defined(_WIN32)
+__declspec(dllexport)
+#else
+__attribute__((visibility("default")))
+#endif
+void dslink_setup(void) {
+    dslink_class = class_new(gensym("dslink"),
+                                (t_newmethod)dslink_new,
+                                (t_method)dslink_free,
+                                sizeof(t_dslink),
+                                CLASS_DEFAULT,
+                                0);
+
+    class_addbang(dslink_class, dslink_read);
+    class_addmethod(dslink_class, (t_method)dslink_read, gensym("read"), 0);
+    class_addmethod(dslink_class, (t_method)dslink_open, gensym("open"), 0);
+    class_addmethod(dslink_class, (t_method)dslink_close, gensym("close"), 0);
+    class_addmethod(dslink_class, (t_method)dslink_poll, gensym("poll"), A_FLOAT, 0);
+    class_addmethod(dslink_class, (t_method)dslink_set_motors, gensym("motors"), A_FLOAT, A_FLOAT, 0);
+    class_addmethod(dslink_class, (t_method)dslink_set_led_color, gensym("led_color"), A_FLOAT, A_FLOAT, A_FLOAT, 0);
+    class_addmethod(dslink_class, (t_method)dslink_set_mute_led, gensym("mute_led"), A_FLOAT, 0);
+    class_addmethod(dslink_class, (t_method)dslink_set_player_leds, gensym("player_leds"), A_FLOAT, 0);
+    class_addmethod(dslink_class, (t_method)dslink_set_trigger, gensym("left_trigger"), A_GIMME, 0);
+    class_addmethod(dslink_class, (t_method)dslink_set_trigger, gensym("right_trigger"), A_GIMME, 0);
+
+    post("dslink external for Pure Data");
+    post("compatible with Sony DualSense controller");
+
+    hid_init();
+
+#if defined(__APPLE__)
+    // To work properly needs to be called before hid_open/hid_open_path after hid_init.
+    // Best/recommended option - call it right after hid_init.
+    hid_darwin_set_open_exclusive(0);
+#endif
 }
