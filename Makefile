@@ -27,9 +27,10 @@ define forDarwin
 endef
 
 datafiles = \
+	dsshow.pd_lua \
+	dsshow-shapes.lua \
 	dslink-help.pd \
 	${empty}
-
 
 objectsdir = ./build
 PDLIBBUILDER_DIR=./pd-lib-builder

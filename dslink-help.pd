@@ -1,7 +1,7 @@
 #N canvas 610 81 1015 851 10;
 #X msg 196 138 scale \$1;
 #X obj 201 114 hsl 136 16 0 1 0 0 empty empty empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
-#X msg 85 59 orientation reset;
+#X msg 40 18 orientation reset;
 #X obj 85 114 route button;
 #X obj 85 140 route mute;
 #X msg 372 140 reload;
@@ -18,9 +18,11 @@
 #X msg 281 81 size 200;
 #X msg 372 113 reinit;
 #X msg 261 53 size reset;
-#X obj 195 263 dsshow;
+#X obj 127 218 dsshow;
 #X obj 42 167 print dslink;
 #X obj 85 87 dslink;
+#X msg 88 50 open \, poll 10;
+#X msg 150 71 close;
 #X connect 0 0 19 0;
 #X connect 1 0 0 0;
 #X connect 2 0 21 0;
@@ -42,3 +44,5 @@
 #X connect 21 0 3 0;
 #X connect 21 0 19 0;
 #X connect 21 0 20 0;
+#X connect 22 0 21 0;
+#X connect 23 0 21 0;
