@@ -8,7 +8,7 @@ function ds:initialize(sel, atoms)
     self.size = {619, 384}
     self.scale = 1
     self:set_size(self.size[1], self.size[2])
-    self.delay_time = 33.333333
+    self.delay_time = 25
     self.time = 0
     self.googly = 0
     self.track_orientation = false

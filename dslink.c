@@ -367,16 +367,16 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     int offset = x->is_bluetooth ? 2 : 1;
 
     // Left stick
-    output_value_message(x->data_out, (const char*[]){"stick", "l", "x"}, 3, (buf[offset + 0] - 128) / 128.0f);
-    output_value_message(x->data_out, (const char*[]){"stick", "l", "y"}, 3, (buf[offset + 1] - 128) / 128.0f);
+    output_value_message(x->data_out, (const char*[]){"stick", "l", "x"}, 3, (buf[offset + 0] - 128) / 128);
+    output_value_message(x->data_out, (const char*[]){"stick", "l", "y"}, 3, (buf[offset + 1] - 128) / 128);
 
     // Right stick
-    output_value_message(x->data_out, (const char*[]){"stick", "r", "x"}, 3, (buf[offset + 2] - 128) / 128.0f);
-    output_value_message(x->data_out, (const char*[]){"stick", "r", "y"}, 3, (buf[offset + 3] - 128) / 128.0f);
+    output_value_message(x->data_out, (const char*[]){"stick", "r", "x"}, 3, (buf[offset + 2] - 128) / 128);
+    output_value_message(x->data_out, (const char*[]){"stick", "r", "y"}, 3, (buf[offset + 3] - 128) / 128);
 
     // Triggers
-    output_value_message(x->data_out, (const char*[]){"trigger", "l"}, 2, buf[offset + 4] / 255.0f);
-    output_value_message(x->data_out, (const char*[]){"trigger", "r"}, 2, buf[offset + 5] / 255.0f);
+    output_value_message(x->data_out, (const char*[]){"trigger", "l"}, 2, buf[offset + 4] / 255);
+    output_value_message(x->data_out, (const char*[]){"trigger", "r"}, 2, buf[offset + 5] / 255);
 
     // Buttons
     output_value_message(x->data_out, (const char*[]){"button", "triangle"}, 2, (buf[offset + 7] & 0x80) != 0);
@@ -416,9 +416,9 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     uint16_t gyro_y_raw = (uint16_t)((buf[offset + 19]) | buf[offset + 18] << 8);
     uint16_t gyro_z_raw = (uint16_t)((buf[offset + 21]) | buf[offset + 20] << 8);
 
-    t_float gyro_x = (t_float)((gyro_x_raw > 32767) ? gyro_x_raw - 65536 : gyro_x_raw) / 32767.0f;
-    t_float gyro_y = (t_float)((gyro_y_raw > 32767) ? gyro_y_raw - 65536 : gyro_y_raw) / 32767.0f;
-    t_float gyro_z = (t_float)((gyro_z_raw > 32767) ? gyro_z_raw - 65536 : gyro_z_raw) / 32767.0f;
+    t_float gyro_x = (t_float)((gyro_x_raw > 32767) ? gyro_x_raw - 65536 : gyro_x_raw) / 32767;
+    t_float gyro_y = (t_float)((gyro_y_raw > 32767) ? gyro_y_raw - 65536 : gyro_y_raw) / 32767;
+    t_float gyro_z = (t_float)((gyro_z_raw > 32767) ? gyro_z_raw - 65536 : gyro_z_raw) / 32767;
 
     output_value_message(x->data_out, (const char*[]){"gyro", "x"}, 2, gyro_x);
     output_value_message(x->data_out, (const char*[]){"gyro", "y"}, 2, gyro_y);
@@ -429,9 +429,9 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     uint16_t accel_y_raw = (uint16_t)((buf[offset + 25]) | buf[offset + 24] << 8);
     uint16_t accel_z_raw = (uint16_t)((buf[offset + 27]) | buf[offset + 26] << 8);
 
-    t_float accel_x = (t_float)((accel_x_raw > 32767) ? accel_x_raw - 65536 : accel_x_raw) / 32767.0f;
-    t_float accel_y = (t_float)((accel_y_raw > 32767) ? accel_y_raw - 65536 : accel_y_raw) / 32767.0f;
-    t_float accel_z = (t_float)((accel_z_raw > 32767) ? accel_z_raw - 65536 : accel_z_raw) / 32767.0f;
+    t_float accel_x = (t_float)((accel_x_raw > 32767) ? accel_x_raw - 65536 : accel_x_raw) / 32767;
+    t_float accel_y = (t_float)((accel_y_raw > 32767) ? accel_y_raw - 65536 : accel_y_raw) / 32767;
+    t_float accel_z = (t_float)((accel_z_raw > 32767) ? accel_z_raw - 65536 : accel_z_raw) / 32767;
 
     output_value_message(x->data_out, (const char*[]){"accel", "x"}, 2, accel_x);
     output_value_message(x->data_out, (const char*[]){"accel", "y"}, 2, accel_y);
@@ -452,11 +452,11 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
             int touch_x = ((touch_data3 & 0x0F) << 8) | touch_data2;
             int touch_y = (touch_data4 << 4) | ((touch_data3 & 0xF0) >> 4);
             
-            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "active"}, 3, 1.0f);
-            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "x"}, 3, touch_x / 1920.0f);
-            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "y"}, 3, touch_y / 1080.0f);
+            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "active"}, 3, 1);
+            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "x"}, 3, touch_x / 1920);
+            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "y"}, 3, 1 - touch_y / 1080);
         } else {
-            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "active"}, 3, 0.0f);
+            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "active"}, 3, 0);
         }
     }
 
