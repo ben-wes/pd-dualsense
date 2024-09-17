@@ -6,10 +6,10 @@ env:
 
 on:
   push:
-    branches: [ master, build-tests ]
+    branches: [ main, build-tests ]
     tags: [ '*' ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   ubuntu-build:
