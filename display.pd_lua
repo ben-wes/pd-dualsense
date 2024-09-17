@@ -8,7 +8,7 @@ function ds:initialize(sel, atoms)
     self.size = {619, 384}
     self.scale = 1
     self:set_size(self.size[1], self.size[2])
-    self.delay_time = 30
+    self.delay_time = 33.333333
     self.time = 0
     self.googly = 0
     self.track_orientation = false
@@ -46,12 +46,6 @@ function ds:initialize(sel, atoms)
         stick_l_y = 0,
         stick_r_x = 0,
         stick_r_y = 0,
-        -- gyro_x = 0,
-        -- gyro_y = 0,
-        -- gyro_z = 0,
-        -- accel_x = 0,
-        -- accel_y = 1,
-        -- accel_z = 0,
         quat_w = 1,
         quat_x = 0,
         quat_y = 0,
@@ -187,16 +181,8 @@ function ds:in_1_dpad(atoms)
     end
 end
 
-function ds:in_1_gyro(atoms)
-    -- if atoms[1] == "x" then self.state.gyro_x = atoms[2] end
-    -- if atoms[1] == "y" then self.state.gyro_y = atoms[2] end
-    -- if atoms[1] == "z" then self.state.gyro_z = atoms[2] end
-end
-
-function ds:in_1_accel(atoms)
-    -- if atoms[1] == "x" then self.state.accel_x = atoms[2] end
-    -- if atoms[1] == "y" then self.state.accel_y = atoms[2] end
-    -- if atoms[1] == "z" then self.state.accel_z = atoms[2] end
+function ds:in_1(atoms)
+    -- generic method to safely ignore unknown messages
 end
 
 function ds:in_1_quat(atoms)
