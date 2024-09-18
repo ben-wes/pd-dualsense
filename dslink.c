@@ -59,6 +59,8 @@ typedef struct _dslink {
     unsigned char output_buf[OUTPUT_REPORT_SIZE];
     int is_bluetooth;
     t_outlet *data_out;
+    t_outlet *imu_out;
+    t_outlet *status_out;
     // t_outlet *debug_outlet;
     t_clock *poll_clock;
     t_float poll_interval;
@@ -280,11 +282,13 @@ static void dslink_set_led(t_dslink *x, t_symbol *s, int argc, t_atom *argv) {
     }
     else if (type == gensym("color"))
     {
-        if (argc != 4)
-            pd_error(x, "dslink: wrong argument count for color");
-        x->output_buf[OFFSET_LED_R] = atom_getintarg(1, argc, argv);
-        x->output_buf[OFFSET_LED_G] = atom_getintarg(2, argc, argv);
-        x->output_buf[OFFSET_LED_B] = atom_getintarg(3, argc, argv);
+        unsigned char r, g, b;
+        r = atom_getintarg(1, argc, argv);
+        g = argc > 2 ? atom_getintarg(2, argc, argv) : r;
+        b = argc > 3 ? atom_getintarg(3, argc, argv) : r;
+        x->output_buf[OFFSET_LED_R] = r;
+        x->output_buf[OFFSET_LED_G] = g;
+        x->output_buf[OFFSET_LED_B] = b;
     }
     dslink_write(x);
 }
@@ -313,6 +317,8 @@ static void *dslink_new(void) {
     t_dslink *x = (t_dslink *)pd_new(dslink_class);
 
     x->data_out = outlet_new(&x->x_obj, &s_anything);
+    x->imu_out = outlet_new(&x->x_obj, &s_anything);
+    x->status_out = outlet_new(&x->x_obj, &s_anything);
     // x->debug_outlet = outlet_new(&x->x_obj, &s_list);
 
     x->poll_clock = clock_new(x, (t_method)dslink_tick);
@@ -357,13 +363,13 @@ static uint32_t crc32(const uint8_t *data, size_t len) {
 static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     int offset = x->is_bluetooth ? 2 : 1;
 
-    // Left stick
-    output_value_message(x->data_out, (const char*[]){"stick", "l", "x"}, 3, (buf[offset + 0] - 128) / 128.0f);
-    output_value_message(x->data_out, (const char*[]){"stick", "l", "y"}, 3, (buf[offset + 1] - 128) / -128.0f);
+    // Left analog
+    output_value_message(x->data_out, (const char*[]){"analog", "l", "x"}, 3, (buf[offset + 0] - 128) / 128.0f);
+    output_value_message(x->data_out, (const char*[]){"analog", "l", "y"}, 3, (buf[offset + 1] - 128) / -128.0f);
 
-    // Right stick
-    output_value_message(x->data_out, (const char*[]){"stick", "r", "x"}, 3, (buf[offset + 2] - 128) / 128.0f);
-    output_value_message(x->data_out, (const char*[]){"stick", "r", "y"}, 3, (buf[offset + 3] - 128) / -128.0f);
+    // Right analog
+    output_value_message(x->data_out, (const char*[]){"analog", "r", "x"}, 3, (buf[offset + 2] - 128) / 128.0f);
+    output_value_message(x->data_out, (const char*[]){"analog", "r", "y"}, 3, (buf[offset + 3] - 128) / -128.0f);
 
     // Triggers
     output_value_message(x->data_out, (const char*[]){"trigger", "l"}, 2, buf[offset + 4] / 255.0f);
@@ -387,20 +393,20 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     output_value_message(x->data_out, (const char*[]){"button", "mute"}, 2, (buf[offset + 9] & 0x04) != 0);
 
     // D-pad
-    uint8_t dpad = buf[offset + 7] & 0x0F;
-    int dpad_x = 0, dpad_y = 0;
-    switch (dpad) {
-        case 0: dpad_y = 1; break;
-        case 1: dpad_x = 1; dpad_y = 1; break;
-        case 2: dpad_x = 1; break;
-        case 3: dpad_x = 1; dpad_y = -1; break;
-        case 4: dpad_y = -1; break;
-        case 5: dpad_x = -1; dpad_y = -1; break;
-        case 6: dpad_x = -1; break;
-        case 7: dpad_x = -1; dpad_y = 1; break;
+    uint8_t digital = buf[offset + 7] & 0x0F;
+    int digital_x = 0, digital_y = 0;
+    switch (digital) {
+        case 0: digital_y = 1; break;
+        case 1: digital_x = 1; digital_y = 1; break;
+        case 2: digital_x = 1; break;
+        case 3: digital_x = 1; digital_y = -1; break;
+        case 4: digital_y = -1; break;
+        case 5: digital_x = -1; digital_y = -1; break;
+        case 6: digital_x = -1; break;
+        case 7: digital_x = -1; digital_y = 1; break;
     }
-    output_value_message(x->data_out, (const char*[]){"dpad", "x"}, 2, dpad_x);
-    output_value_message(x->data_out, (const char*[]){"dpad", "y"}, 2, dpad_y);
+    output_value_message(x->data_out, (const char*[]){"digital", "x"}, 2, digital_x);
+    output_value_message(x->data_out, (const char*[]){"digital", "y"}, 2, digital_y);
 
     // Gyroscope
     uint16_t gyro_x_raw = (uint16_t)((buf[offset + 17]) | buf[offset + 16] << 8);
@@ -411,9 +417,9 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     t_float gyro_y = (t_float)((gyro_y_raw > 32767) ? gyro_y_raw - 65536 : gyro_y_raw) / 8192.0f;
     t_float gyro_z = (t_float)((gyro_z_raw > 32767) ? gyro_z_raw - 65536 : gyro_z_raw) / 8192.0f;
 
-    output_value_message(x->data_out, (const char*[]){"gyro", "x"}, 2, gyro_x);
-    output_value_message(x->data_out, (const char*[]){"gyro", "y"}, 2, gyro_y);
-    output_value_message(x->data_out, (const char*[]){"gyro", "z"}, 2, gyro_z);
+    output_value_message(x->imu_out, (const char*[]){"gyro", "x"}, 2, gyro_x);
+    output_value_message(x->imu_out, (const char*[]){"gyro", "y"}, 2, gyro_y);
+    output_value_message(x->imu_out, (const char*[]){"gyro", "z"}, 2, gyro_z);
 
     // Accelerometer
     uint16_t accel_x_raw = (uint16_t)((buf[offset + 23]) | buf[offset + 22] << 8);
@@ -424,9 +430,9 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     t_float accel_y = (t_float)((accel_y_raw > 32767) ? accel_y_raw - 65536 : accel_y_raw) / 8192.0f;
     t_float accel_z = (t_float)((accel_z_raw > 32767) ? accel_z_raw - 65536 : accel_z_raw) / 8192.0f;
 
-    output_value_message(x->data_out, (const char*[]){"accel", "x"}, 2, accel_x);
-    output_value_message(x->data_out, (const char*[]){"accel", "y"}, 2, accel_y);
-    output_value_message(x->data_out, (const char*[]){"accel", "z"}, 2, accel_z);
+    output_value_message(x->imu_out, (const char*[]){"accel", "x"}, 2, accel_x);
+    output_value_message(x->imu_out, (const char*[]){"accel", "y"}, 2, accel_y);
+    output_value_message(x->imu_out, (const char*[]){"accel", "z"}, 2, accel_z);
 
     // Touchpad
     for (int i = 0; i < 2; i++) {
@@ -437,7 +443,7 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
         uint8_t touch_data4 = buf[touch_offset + 3];
         int is_active = !(touch_data1 & 0x80);
         
-        const char* touch_id = (i == 0) ? "touch_0" : "touch_1";
+        const char* touch_id = (i == 0) ? "touch1" : "touch2";
         
         if (is_active) {
             int touch_x = ((touch_data3 & 0x0F) << 8) | touch_data2;
@@ -456,7 +462,7 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     int battery_level = battery_data & 0x0F;
     int battery_status = (battery_data & 0xF0) >> 4;
 
-    output_value_message(x->data_out, (const char*[]){"battery", "level"}, 2, battery_level);
+    output_value_message(x->status_out, (const char*[]){"battery", "level"}, 2, battery_level);
 
     const char *status_str;
     switch (battery_status) {
@@ -467,18 +473,18 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
         case 0xB: status_str = "temp_low"; break;
         default: status_str = "unknown";
     }
-    output_symbol_message(x->data_out, (const char*[]){"battery", "status"}, 2, status_str);
+    output_symbol_message(x->status_out, (const char*[]){"battery", "status"}, 2, status_str);
 
     // Connection type (already known from device opening)
-    output_symbol_message(x->data_out, (const char*[]){"connection"}, 1, x->is_bluetooth ? "bluetooth" : "usb");
+    output_symbol_message(x->status_out, (const char*[]){"connection"}, 1, x->is_bluetooth ? "bluetooth" : "usb");
 
     // Headphone and mic status
     uint8_t headset_data = buf[offset + 53];
-    output_value_message(x->data_out, (const char*[]){"headphones"}, 1, (headset_data & 0x01) != 0);
-    output_value_message(x->data_out, (const char*[]){"microphone"}, 1, (headset_data & 0x02) != 0);
+    output_value_message(x->status_out, (const char*[]){"headphones"}, 1, (headset_data & 0x01) != 0);
+    output_value_message(x->status_out, (const char*[]){"microphone"}, 1, (headset_data & 0x02) != 0);
 
     // Haptic feedback motors active status
-    output_value_message(x->data_out, (const char*[]){"haptic", "active"}, 2, (buf[offset + 54] & 0x02) != 0);
+    output_value_message(x->status_out, (const char*[]){"haptic", "active"}, 2, (buf[offset + 54] & 0x02) != 0); // FIXME: check
 }
 
 

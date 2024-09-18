@@ -15,10 +15,10 @@ function ds:initialize(sel, atoms)
     self.touch_size = 20
     self:reset_colors()
     self.state = {
-        button_dir_left = 0,
-        button_dir_up = 0,
-        button_dir_right = 0,
-        button_dir_down = 0,
+        button_digital_left = 0,
+        button_digital_up = 0,
+        button_digital_right = 0,
+        button_digital_down = 0,
         button_action_square = 0,
         button_action_cross = 0,
         button_action_circle = 0,
@@ -27,12 +27,12 @@ function ds:initialize(sel, atoms)
         button_options = 0,
         button_create = 0,
         button_ps = 0,
-        button_stick_l = 0,
-        button_stick_r = 0,
         button_l1 = 0,
         button_r1 = 0,
         button_l2 = 0,
         button_r2 = 0,
+        button_l3 = 0,
+        button_r3 = 0,
         button_pad = 0,
         pad1_touch = 0,
         pad1_x = 0,
@@ -42,10 +42,10 @@ function ds:initialize(sel, atoms)
         pad2_y = 0,
         trigger_l = 0,
         trigger_r = 0,
-        stick_l_x = 0,
-        stick_l_y = 0,
-        stick_r_x = 0,
-        stick_r_y = 0,
+        analog_l_x = 0,
+        analog_l_y = 0,
+        analog_r_x = 0,
+        analog_r_y = 0,
         quat_w = 1,
         quat_x = 0,
         quat_y = 0,
@@ -171,13 +171,13 @@ function ds:in_1_googly(atoms)
     self.googly = atoms[1]
 end
 
-function ds:in_1_dpad(atoms)
+function ds:in_1_digital(atoms)
     if atoms[1] == "x" then
-        self.state.button_dir_left = math.max(atoms[2] * -1)
-        self.state.button_dir_right = math.max(atoms[2])
+        self.state.button_digital_left = math.max(atoms[2] * -1)
+        self.state.button_digital_right = math.max(atoms[2])
     elseif atoms[1] == "y" then
-        self.state.button_dir_down = math.max(atoms[2] * -1)
-        self.state.button_dir_up = math.max(atoms[2])
+        self.state.button_digital_down = math.max(atoms[2] * -1)
+        self.state.button_digital_up = math.max(atoms[2])
     end
 end
 
@@ -215,8 +215,8 @@ function ds:in_1_button(atoms)
     if atoms[1] == "l2" then self.state.button_l2 = atoms[2] end
     if atoms[1] == "r2" then self.state.button_r2 = atoms[2] end
 
-    if atoms[1] == "stick_l" then self.state.button_stick_l = atoms[2] end
-    if atoms[1] == "stick_r" then self.state.button_stick_r = atoms[2] end
+    if atoms[1] == "l3" then self.state.button_l3 = atoms[2] end
+    if atoms[1] == "r3" then self.state.button_r3 = atoms[2] end
 
     if atoms[1] == "pad" then self.state.button_pad = atoms[2] end
 end
@@ -229,24 +229,24 @@ function ds:in_1_trigger(atoms)
     end
 end
 
-function ds:in_1_stick(atoms)
+function ds:in_1_analog(atoms)
     if atoms[1] == "l" then
         if atoms[2] == "x" then
-            self.state.stick_l_x = atoms[3] * 30
+            self.state.analog_l_x = atoms[3] * 30
         elseif atoms[2] == "y" then
-            self.state.stick_l_y = atoms[3] * 30
+            self.state.analog_l_y = atoms[3] * 30
         end
     elseif atoms[1] == "r" then
         if atoms[2] == "x" then
-            self.state.stick_r_x = atoms[3] * 30
+            self.state.analog_r_x = atoms[3] * 30
         elseif atoms[2] == "y" then
-            self.state.stick_r_y = atoms[3] * 30
+            self.state.analog_r_y = atoms[3] * 30
         end
     end
 end
 
 function ds:in_1_pad(atoms)
-    if atoms[1] == "touch_0" then
+    if atoms[1] == "touch1" then
         if atoms[2] == "x" then
             local touched = atoms[3] >= 0
             self.state.pad1_touch = touched and 1.2 or 0
@@ -256,7 +256,7 @@ function ds:in_1_pad(atoms)
             self.state.pad1_touch = touched and 1.2 or 0
             if touched then self.state.pad1_y = atoms[3] end
         end
-    elseif atoms[1] == "touch_1" then
+    elseif atoms[1] == "touch2" then
         if atoms[2] == "x" then
             local touched = atoms[3] >= 0
             self.state.pad2_touch = touched and 1.2 or 0
@@ -330,17 +330,17 @@ function ds:paint(g)
     g:set_color(self:state_color("button_ps", self.color_active, self.color_case)); for i = 1, #shapes.path_groups.button_pd do g:fill_path(shapes.path_groups.button_pd[i]) end
     g:set_color(table.unpack(self.color_inlay)); for i = 1, #shapes.path_groups.button_pd_content do g:fill_path(shapes.path_groups.button_pd_content[i]) end
 
-    g:set_color(self:state_color("button_dir_left")); g:fill_path(shapes.paths.button_dir_left)
-    g:set_color(table.unpack(self.color_print)); g:fill_path(shapes.paths.button_dir_left_content)
+    g:set_color(self:state_color("button_digital_left")); g:fill_path(shapes.paths.button_digital_left)
+    g:set_color(table.unpack(self.color_print)); g:fill_path(shapes.paths.button_digital_left_content)
 
-    g:set_color(self:state_color("button_dir_up")); g:fill_path(shapes.paths.button_dir_up)
-    g:set_color(table.unpack(self.color_print)); g:fill_path(shapes.paths.button_dir_up_content)
+    g:set_color(self:state_color("button_digital_up")); g:fill_path(shapes.paths.button_digital_up)
+    g:set_color(table.unpack(self.color_print)); g:fill_path(shapes.paths.button_digital_up_content)
 
-    g:set_color(self:state_color("button_dir_right")); g:fill_path(shapes.paths.button_dir_right)
-    g:set_color(table.unpack(self.color_print)); g:fill_path(shapes.paths.button_dir_right_content)
+    g:set_color(self:state_color("button_digital_right")); g:fill_path(shapes.paths.button_digital_right)
+    g:set_color(table.unpack(self.color_print)); g:fill_path(shapes.paths.button_digital_right_content)
 
-    g:set_color(self:state_color("button_dir_down")); g:fill_path(shapes.paths.button_dir_down)
-    g:set_color(table.unpack(self.color_print)); g:fill_path(shapes.paths.button_dir_down_content)
+    g:set_color(self:state_color("button_digital_down")); g:fill_path(shapes.paths.button_digital_down)
+    g:set_color(table.unpack(self.color_print)); g:fill_path(shapes.paths.button_digital_down_content)
 
     g:set_color(self:state_color("button_action_square")); g:fill_path(shapes.paths.button_action_square)
     g:set_color(table.unpack(self.color_print)); g:stroke_rect(415.7, 96.7, 20, 20, 1)
@@ -354,17 +354,17 @@ function ds:paint(g)
     g:set_color(self:state_color("button_action_circle")); g:fill_path(shapes.paths.button_action_circle)
     g:set_color(table.unpack(self.color_print)); g:stroke_ellipse(497, 94, 23.8, 23.8, 1)
 
-    g:translate(state.stick_l_x, -state.stick_l_y)
-    g:set_color(self:state_color("button_stick_l")); g:fill_path(shapes.paths.stick_l)
-        g:translate((state.stick_l_x + 5) * self.googly, -state.stick_l_y * self.googly) -- FIXME: remove?
-        g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.stick_l_content)
-        g:translate(-(state.stick_l_x + 5) * self.googly, state.stick_l_y * self.googly)
-    g:translate(state.stick_r_x - state.stick_l_x, state.stick_l_y - state.stick_r_y)
-    g:set_color(self:state_color("button_stick_r")); g:fill_path(shapes.paths.stick_r)
-        g:translate((state.stick_r_x - 5) * self.googly, -state.stick_r_y * self.googly)
-        g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.stick_r_content)
-        g:translate(-(state.stick_r_x - 5) * self.googly, state.stick_r_y * self.googly)
-    g:translate(-state.stick_r_x, state.stick_r_y)
+    g:translate(state.analog_l_x, -state.analog_l_y)
+    g:set_color(self:state_color("button_l3")); g:fill_path(shapes.paths.analog_l)
+        g:translate((state.analog_l_x + 5) * self.googly, -state.analog_l_y * self.googly) -- FIXME: remove?
+        g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.analog_l_content)
+        g:translate(-(state.analog_l_x + 5) * self.googly, state.analog_l_y * self.googly)
+    g:translate(state.analog_r_x - state.analog_l_x, state.analog_l_y - state.analog_r_y)
+    g:set_color(self:state_color("button_r3")); g:fill_path(shapes.paths.analog_r)
+        g:translate((state.analog_r_x - 5) * self.googly, -state.analog_r_y * self.googly)
+        g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.analog_r_content)
+        g:translate(-(state.analog_r_x - 5) * self.googly, state.analog_r_y * self.googly)
+    g:translate(-state.analog_r_x, state.analog_r_y)
 
     if self.track_orientation then
         local points = self.cube_points
