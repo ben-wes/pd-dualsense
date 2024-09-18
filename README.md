@@ -16,7 +16,11 @@ Pd external and Pd-Lua object to connect and display Sony DualSense controller
 
 * requires `pdlua` external for display (available through deken)
 
-## messages
+## input messages
+
+see screenshot and code ... more documentation will follow!
+
+## output messages
 
 ### left outlet
 interaction with controller elements:
