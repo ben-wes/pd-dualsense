@@ -60,6 +60,8 @@
 #define OFFSET_LEFT_TRIGGER 13
 #define OFFSET_RIGHT_TRIGGER 24
 
+#define CRC32_POLYNOMIAL 0xEDB88320
+
 typedef enum {
     BATTERY_UNKNOWN,
     BATTERY_DISCHARGING,
@@ -112,13 +114,16 @@ typedef struct _dslink {
 
 t_class *dslink_class;
 
+
 // utility function prototypes
+static uint32_t crc32_table[256];
+
+static void generate_crc32_table();
 static uint32_t crc32(const uint8_t *data, size_t len);
 static void parse_input_report(t_dslink *x, const unsigned char *buf, int filter);
 static void output_value(t_outlet *outlet, const char *parts[], int num_parts, t_float *state_value, t_float value, int filter);
 static void do_write(t_dslink *x);
 static void poll_tick(t_dslink *x);
-
 
 static void dslink_write(t_dslink *x) {
     // write if no other write is pending
@@ -178,7 +183,8 @@ static void dslink_open(t_dslink *x) {
     x->write_buf[5] = 0x7F;
     x->write_buf[9] = 0xFF;
 
-    dslink_write(x);
+    x->write_size = x->is_bluetooth ? OUTPUT_REPORT_BT_SIZE : OUTPUT_REPORT_USB_SIZE;
+    do_write(x); // write immediately to ensure that LED flag will be switched
     x->write_buf[5] = 0x77; // release LED with next report
 
     hid_set_nonblocking(x->handle, 1);
@@ -338,13 +344,20 @@ static void output_value(t_outlet *outlet, const char *parts[], int num_parts, t
     }
 }
 
-static uint32_t crc32(const uint8_t *data, size_t len) {
-    uint32_t crc = 0xFFFFFFFF;
-    for (size_t i = 0; i < len; i++) {
-        crc ^= data[i];
+static void generate_crc32_table() {
+    for (uint32_t i = 0; i < 256; i++) {
+        uint32_t crc = i;
         for (int j = 0; j < 8; j++) {
             crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
         }
+        crc32_table[i] = crc;
+    }
+}
+
+static uint32_t crc32(const uint8_t *data, size_t len) {
+    uint32_t crc = 0xFFFFFFFF;
+    for (size_t i = 0; i < len; i++) {
+        crc = (crc >> 8) ^ crc32_table[(crc & 0xFF) ^ data[i]];
     }
     return ~crc;
 }
@@ -484,10 +497,21 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf, int filter
 
 
 static void dslink_free(t_dslink *x) {
-    dslink_close(x);
-    clock_free(x->poll_clock);
-    clock_free(x->write_clock);
-    freebytes(x->write_buf, OUTPUT_REPORT_BT_SIZE * sizeof(unsigned char));
+    if (x->handle) hid_close(x->handle);
+
+    clock_unset(x->poll_clock);
+    clock_unset(x->write_clock);
+
+    if (x->poll_clock) {
+        clock_free(x->poll_clock);
+        x->poll_clock = NULL;
+    }
+    if (x->write_clock) {
+        clock_free(x->write_clock);
+        x->write_clock = NULL;
+    }
+
+    hid_exit();
 }
 
 static void *dslink_new(void) {
@@ -533,6 +557,7 @@ void dslink_setup(void) {
     post("\n  dslink v%d.%d.%d", DSLINK_MAJOR_VERSION, DSLINK_MINOR_VERSION, DSLINK_BUGFIX_VERSION);
     post(  "  hidapi v%d.%d.%d\n", HID_API_VERSION_MAJOR, HID_API_VERSION_MINOR, HID_API_VERSION_PATCH);
 
+    generate_crc32_table();
     hid_init();
 
 #if defined(__APPLE__)

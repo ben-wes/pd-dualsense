@@ -1,0 +1,14 @@
+Audio Haptics
+from https://web.archive.org/web/20220909153058/https://www.paliverseapps.com/dualsensem/
+
+Please follow the following to enable Audio Haptics in macOS
+1. Make sure you connect the controller to the mac via a USB Cable and have the Audio Haptics Option toggled ON
+2. Search for Audio MIDI Setup for faster results, open Spotlight by pressing Command + Space 
+3. On the left side you should see a device named "Wireless Controller 1" with 0 Ins and 4 Outs
+4. Click on "Configure Speakers..." at the bottom right of the window
+5. Choose the Stereo Configuration
+6. At the bottom you should see a Left and a Right, and to the right of them in the channel tab you should see a
+    dropdown with 4 different options: Front Left, Front Right, Back Left, Back Right
+7. For the Left Speaker choose Back Left
+8. For the Right Speaker choose Back Right
+9. Finally just hit apply then Done
