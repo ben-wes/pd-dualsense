@@ -96,7 +96,6 @@ typedef struct _dslink {
     t_outlet *data_out;
     t_outlet *imu_out;
     t_outlet *status_out;
-    // t_outlet *debug_outlet;
     t_clock *poll_clock;
     t_clock *write_clock; // clock for write scheduling
     t_float poll_interval;
@@ -122,14 +121,8 @@ static void dslink_write(t_dslink *x) {
         return;
     }
 
-    // if (x->write_size != 0) {
-    //     // A write is already pending
-    //     pd_error(x, "dslink: write already in progress");
-    //     return;
-    // }
-
-    // t_atom output_atoms[OUTPUT_REPORT_BT_SIZE]; // for debug purposes
-    // int num_bytes;
+    // return if write is already pending (didn't check if that ever happens)
+    if (x->write_size != 0) return;
 
     if (x->is_bluetooth) {
         unsigned char crc_buffer[OUTPUT_REPORT_BT_CHECK_SIZE];
@@ -159,12 +152,6 @@ static void dslink_write(t_dslink *x) {
         // Increment sequence number
         x->sequence_number = (x->sequence_number + 16) & 0xFF;
 
-        // // Prepare output atoms
-        // for (int i = 0; i < OUTPUT_REPORT_BT_SIZE; i++) {
-        //     SETFLOAT(&output_atoms[i], (t_float)bt_buffer[i]);
-        // }
-        // num_bytes = OUTPUT_REPORT_BT_SIZE;
-
         // Write the Bluetooth report
         x->write_size = OUTPUT_REPORT_BT_SIZE;
     } else {
@@ -172,18 +159,11 @@ static void dslink_write(t_dslink *x) {
         x->write_buf[0] = USB_REPORT_ID;
         memcpy(x->write_buf + 1, x->output_buf, OUTPUT_REPORT_SIZE);
 
-        // // Prepare output atoms
-        // for (int i = 0; i < OUTPUT_REPORT_USB_SIZE; i++) {
-        //     SETFLOAT(&output_atoms[i], (t_float)usb_buffer[i]);
-        // }
-        // num_bytes = OUTPUT_REPORT_USB_SIZE;
-
         // Write the USB report
         x->write_size = OUTPUT_REPORT_USB_SIZE;
     }
 
     clock_delay(x->write_clock, 0);
-    // outlet_list(x->debug_outlet, &s_list, num_bytes, output_atoms);
 }
 
 static void dslink_open(t_dslink *x) {
@@ -338,6 +318,11 @@ static void dslink_set_trigger(t_dslink *x, t_symbol *s, int argc, t_atom *argv)
 }
 
 static void dslink_state(t_dslink *x) {
+    if (!x->handle) {
+        pd_error(x, "dslink: no device opened");
+        return;
+    }
+
     dslink_read(x);
     parse_input_report(x, x->input_buf, 0);
 }
@@ -536,7 +521,6 @@ static void *dslink_new(void) {
     x->data_out = outlet_new(&x->x_obj, &s_anything);
     x->imu_out = outlet_new(&x->x_obj, &s_anything);
     x->status_out = outlet_new(&x->x_obj, &s_anything);
-    // x->debug_outlet = outlet_new(&x->x_obj, &s_list);
 
     x->poll_clock = clock_new(x, (t_method)poll_tick);
     x->write_clock = clock_new(x, (t_method)do_write);
