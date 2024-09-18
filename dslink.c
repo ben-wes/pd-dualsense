@@ -67,39 +67,82 @@ typedef struct _dslink {
 
 t_class *dslink_class;
 
-static void dslink_open(t_dslink *x);
-static void dslink_close(t_dslink *x);
-static void dslink_poll(t_dslink *x, t_floatarg f);
-static int dslink_read(t_dslink *x);
-static void dslink_write(t_dslink *x);
-static void dslink_free(t_dslink *x);
-static void dslink_set_led_color(t_dslink *x, t_floatarg r, t_floatarg g, t_floatarg b);
-static void dslink_set_player_leds(t_dslink *x, t_floatarg mask);
-static void dslink_set_mute_led(t_dslink *x, t_floatarg state);
-static void dslink_set_trigger(t_dslink *x, t_symbol *s, int argc, t_atom *argv);
-static void dslink_set_motors(t_dslink *x, t_floatarg left, t_floatarg right);
-
-static void output_value_message(t_outlet *outlet, const char *parts[], int num_parts, t_float value) {
-    t_atom atoms[num_parts + 1];
-    for (int i = 0; i < num_parts; i++) {
-        SETSYMBOL(&atoms[i], gensym(parts[i]));
-    }
-    SETFLOAT(&atoms[num_parts], value);
-    outlet_anything(outlet, gensym(parts[0]), num_parts, &atoms[1]);
-}
-
-static void output_symbol_message(t_outlet *outlet, const char *parts[], int num_parts, const char *value) {
-    t_atom atoms[num_parts + 1];
-    for (int i = 0; i < num_parts; i++) {
-        SETSYMBOL(&atoms[i], gensym(parts[i]));
-    }
-    SETSYMBOL(&atoms[num_parts], gensym(value));
-    outlet_anything(outlet, gensym(parts[0]), num_parts, &atoms[1]);
-}
-
-// Utility functions
-static uint32_t crc32_compute(const uint8_t *data, size_t len);
+// utility function prototypes
+static uint32_t crc32(const uint8_t *data, size_t len);
 static void parse_input_report(t_dslink *x, const unsigned char *buf);
+static void output_value_message(t_outlet *outlet, const char *parts[], int num_parts, t_float value);
+static void output_symbol_message(t_outlet *outlet, const char *parts[], int num_parts, const char *value);
+
+
+static void dslink_write(t_dslink *x) {
+    if (!x->handle) {
+        pd_error(x, "dslink: no device opened");
+        return;
+    }
+
+    // t_atom output_atoms[OUTPUT_REPORT_BT_SIZE]; // for debug purposes
+    // int num_bytes;
+
+    if (x->is_bluetooth) {
+        unsigned char bt_buffer[OUTPUT_REPORT_BT_SIZE];
+        unsigned char crc_buffer[OUTPUT_REPORT_BT_CHECK_SIZE];
+
+        // Prepare CRC buffer
+        crc_buffer[0] = 0xA2;  // Salt
+        crc_buffer[1] = BT_REPORT_ID;
+        crc_buffer[2] = x->sequence_number;
+        crc_buffer[3] = 0x10;  // Static value
+
+        // Copy the common output buffer
+        memcpy(crc_buffer + 4, x->output_buf, OUTPUT_REPORT_SIZE);
+
+        // Zero-fill the rest of the CRC buffer
+        memset(crc_buffer + 4 + OUTPUT_REPORT_SIZE, 0, OUTPUT_REPORT_BT_CHECK_SIZE - (4 + OUTPUT_REPORT_SIZE));
+
+        // Calculate CRC
+        uint32_t crc = crc32(crc_buffer, OUTPUT_REPORT_BT_CHECK_SIZE);
+
+        // Prepare the actual Bluetooth output buffer
+        memcpy(bt_buffer, crc_buffer + 1, OUTPUT_REPORT_BT_SIZE - 4);  // Copy everything except the salt and CRC
+        bt_buffer[74] = (crc >> 0) & 0xFF;
+        bt_buffer[75] = (crc >> 8) & 0xFF;
+        bt_buffer[76] = (crc >> 16) & 0xFF;
+        bt_buffer[77] = (crc >> 24) & 0xFF;
+
+        // Increment sequence number
+        x->sequence_number = (x->sequence_number + 16) & 0xFF;
+
+        // // Prepare output atoms
+        // for (int i = 0; i < OUTPUT_REPORT_BT_SIZE; i++) {
+        //     SETFLOAT(&output_atoms[i], (t_float)bt_buffer[i]);
+        // }
+        // num_bytes = OUTPUT_REPORT_BT_SIZE;
+
+        // Write the Bluetooth report
+        int res = hid_write(x->handle, bt_buffer, OUTPUT_REPORT_BT_SIZE);
+        if (res < 0) {
+            pd_error(x, "dslink: error writing to device (Bluetooth mode)");
+        }
+    } else {
+        // USB mode
+        unsigned char usb_buffer[OUTPUT_REPORT_USB_SIZE];
+        usb_buffer[0] = USB_REPORT_ID;
+        memcpy(usb_buffer + 1, x->output_buf, OUTPUT_REPORT_SIZE);
+
+        // // Prepare output atoms
+        // for (int i = 0; i < OUTPUT_REPORT_USB_SIZE; i++) {
+        //     SETFLOAT(&output_atoms[i], (t_float)usb_buffer[i]);
+        // }
+        // num_bytes = OUTPUT_REPORT_USB_SIZE;
+
+        // Write the USB report
+        int res = hid_write(x->handle, usb_buffer, OUTPUT_REPORT_USB_SIZE);
+        if (res < 0) {
+            pd_error(x, "dslink: error writing to device (USB mode)");
+        }
+    }
+    // outlet_list(x->debug_outlet, &s_list, num_bytes, output_atoms);
+}
 
 static void dslink_open(t_dslink *x) {
     if (x->handle) {
@@ -198,122 +241,51 @@ static void dslink_tick(t_dslink *x)
         clock_delay(x->poll_clock, x->poll_interval);
 }
 
-static void dslink_write(t_dslink *x) {
+static void dslink_set_motor(t_dslink *x, t_symbol *s, t_floatarg value) {
     if (!x->handle) {
         pd_error(x, "dslink: no device opened");
         return;
     }
 
-    // t_atom output_atoms[OUTPUT_REPORT_BT_SIZE]; // for debug purposes
-    // int num_bytes;
+    post("name: %s", s->s_name);
+    int offset = (s == gensym("right")) ? OFFSET_MOTOR_RIGHT : OFFSET_MOTOR_LEFT;
 
-    if (x->is_bluetooth) {
-        unsigned char bt_buffer[OUTPUT_REPORT_BT_SIZE];
-        unsigned char crc_buffer[OUTPUT_REPORT_BT_CHECK_SIZE];
-
-        // Prepare CRC buffer
-        crc_buffer[0] = 0xA2;  // Salt
-        crc_buffer[1] = BT_REPORT_ID;
-        crc_buffer[2] = x->sequence_number;
-        crc_buffer[3] = 0x10;  // Static value
-
-        // Copy the common output buffer
-        memcpy(crc_buffer + 4, x->output_buf, OUTPUT_REPORT_SIZE);
-
-        // Zero-fill the rest of the CRC buffer
-        memset(crc_buffer + 4 + OUTPUT_REPORT_SIZE, 0, OUTPUT_REPORT_BT_CHECK_SIZE - (4 + OUTPUT_REPORT_SIZE));
-
-        // Calculate CRC
-        uint32_t crc = crc32_compute(crc_buffer, OUTPUT_REPORT_BT_CHECK_SIZE);
-
-        // Prepare the actual Bluetooth output buffer
-        memcpy(bt_buffer, crc_buffer + 1, OUTPUT_REPORT_BT_SIZE - 4);  // Copy everything except the salt and CRC
-        bt_buffer[74] = (crc >> 0) & 0xFF;
-        bt_buffer[75] = (crc >> 8) & 0xFF;
-        bt_buffer[76] = (crc >> 16) & 0xFF;
-        bt_buffer[77] = (crc >> 24) & 0xFF;
-
-        // Increment sequence number
-        x->sequence_number = (x->sequence_number + 16) & 0xFF;
-
-        // // Prepare output atoms
-        // for (int i = 0; i < OUTPUT_REPORT_BT_SIZE; i++) {
-        //     SETFLOAT(&output_atoms[i], (t_float)bt_buffer[i]);
-        // }
-        // num_bytes = OUTPUT_REPORT_BT_SIZE;
-
-        // Write the Bluetooth report
-        int res = hid_write(x->handle, bt_buffer, OUTPUT_REPORT_BT_SIZE);
-        if (res < 0) {
-            pd_error(x, "dslink: error writing to device (Bluetooth mode)");
-        }
-    } else {
-        // USB mode
-        unsigned char usb_buffer[OUTPUT_REPORT_USB_SIZE];
-        usb_buffer[0] = USB_REPORT_ID;
-        memcpy(usb_buffer + 1, x->output_buf, OUTPUT_REPORT_SIZE);
-
-        // // Prepare output atoms
-        // for (int i = 0; i < OUTPUT_REPORT_USB_SIZE; i++) {
-        //     SETFLOAT(&output_atoms[i], (t_float)usb_buffer[i]);
-        // }
-        // num_bytes = OUTPUT_REPORT_USB_SIZE;
-
-        // Write the USB report
-        int res = hid_write(x->handle, usb_buffer, OUTPUT_REPORT_USB_SIZE);
-        if (res < 0) {
-            pd_error(x, "dslink: error writing to device (USB mode)");
-        }
-    }
-    // outlet_list(x->debug_outlet, &s_list, num_bytes, output_atoms);
-}
-
-static void dslink_set_motors(t_dslink *x, t_floatarg left, t_floatarg right) {
-    if (!x->handle) {
-        pd_error(x, "dslink: no device opened");
-        return;
-    }
-
-    // Set motor intensities
-    x->output_buf[OFFSET_MOTOR_RIGHT] = (unsigned char)(right * 255);
-    x->output_buf[OFFSET_MOTOR_LEFT] = (unsigned char)(left * 255);
+    // Set motor intensity
+    x->output_buf[offset] = (unsigned char)(value * 255);
 
     // Write the updated report
     dslink_write(x);
 }
 
-static void dslink_set_led_color(t_dslink *x, t_floatarg r, t_floatarg g, t_floatarg b) {
+static void dslink_set_led(t_dslink *x, t_symbol *s, int argc, t_atom *argv) {
+    (void)s;
+
     if (!x->handle) {
         pd_error(x, "dslink: no device opened");
         return;
     }
 
-    x->output_buf[OFFSET_LED_R] = (unsigned char)(r);
-    x->output_buf[OFFSET_LED_G] = (unsigned char)(g);
-    x->output_buf[OFFSET_LED_B] = (unsigned char)(b);
+    unsigned char state;
+    t_symbol *type = atom_getsymbolarg(0, argc, argv);
 
-    dslink_write(x);
-}
-
-static void dslink_set_mute_led(t_dslink *x, t_floatarg state) {
-    if (!x->handle) {
-        pd_error(x, "dslink: no device opened");
-        return;
+    if (type == gensym("mute"))
+    {
+        state = argc > 1 ? atom_getintarg(1, argc, argv) : 0;
+        x->output_buf[OFFSET_MUTE_LED] = state; // mask?
     }
-
-    x->output_buf[OFFSET_MUTE_LED] = state > 0 ? 0x01 : 0x00;
-
-    dslink_write(x);
-}
-
-static void dslink_set_player_leds(t_dslink *x, t_floatarg mask) {
-    if (!x->handle) {
-        pd_error(x, "dslink: no device opened");
-        return;
+    else if (type == gensym("players"))
+    {
+        state = argc > 1 ? atom_getintarg(1, argc, argv) : 0;
+        x->output_buf[OFFSET_PLAYER_LEDS] = state & 0x1F;  // player LEDs Only use the lower 5 bits
     }
-
-    x->output_buf[OFFSET_PLAYER_LEDS] = (unsigned char)mask & 0x1F;  // Only use the lower 5 bits
-
+    else if (type == gensym("color"))
+    {
+        if (argc != 4)
+            pd_error(x, "dslink: wrong argument count for color");
+        x->output_buf[OFFSET_LED_R] = atom_getintarg(1, argc, argv);
+        x->output_buf[OFFSET_LED_G] = atom_getintarg(2, argc, argv);
+        x->output_buf[OFFSET_LED_B] = atom_getintarg(3, argc, argv);
+    }
     dslink_write(x);
 }
 
@@ -323,7 +295,7 @@ static void dslink_set_trigger(t_dslink *x, t_symbol *s, int argc, t_atom *argv)
         return;
     }
 
-    int offset = (s == gensym("trigger_left")) ? OFFSET_LEFT_TRIGGER : OFFSET_RIGHT_TRIGGER;
+    int offset = (s == gensym("left")) ? OFFSET_LEFT_TRIGGER : OFFSET_RIGHT_TRIGGER;
 
     for (int i = 0; i < 11; i++) {
         x->output_buf[offset + i] = (unsigned char)atom_getfloat(&argv[i]);
@@ -352,7 +324,26 @@ static void *dslink_new(void) {
 }
 
 // Utility functions
-static uint32_t crc32_compute(const uint8_t *data, size_t len) {
+
+static void output_value_message(t_outlet *outlet, const char *parts[], int num_parts, t_float value) {
+    t_atom atoms[num_parts + 1];
+    for (int i = 0; i < num_parts; i++) {
+        SETSYMBOL(&atoms[i], gensym(parts[i]));
+    }
+    SETFLOAT(&atoms[num_parts], value);
+    outlet_anything(outlet, gensym(parts[0]), num_parts, &atoms[1]);
+}
+
+static void output_symbol_message(t_outlet *outlet, const char *parts[], int num_parts, const char *value) {
+    t_atom atoms[num_parts + 1];
+    for (int i = 0; i < num_parts; i++) {
+        SETSYMBOL(&atoms[i], gensym(parts[i]));
+    }
+    SETSYMBOL(&atoms[num_parts], gensym(value));
+    outlet_anything(outlet, gensym(parts[0]), num_parts, &atoms[1]);
+}
+
+static uint32_t crc32(const uint8_t *data, size_t len) {
     uint32_t crc = 0xFFFFFFFF;
     for (size_t i = 0; i < len; i++) {
         crc ^= data[i];
@@ -509,12 +500,9 @@ void dslink_setup(void) {
     class_addmethod(dslink_class, (t_method)dslink_open, gensym("open"), 0);
     class_addmethod(dslink_class, (t_method)dslink_close, gensym("close"), 0);
     class_addmethod(dslink_class, (t_method)dslink_poll, gensym("poll"), A_FLOAT, 0);
-    class_addmethod(dslink_class, (t_method)dslink_set_motors, gensym("motors"), A_FLOAT, A_FLOAT, 0);
-    class_addmethod(dslink_class, (t_method)dslink_set_led_color, gensym("led_color"), A_FLOAT, A_FLOAT, A_FLOAT, 0);
-    class_addmethod(dslink_class, (t_method)dslink_set_mute_led, gensym("mute_led"), A_FLOAT, 0);
-    class_addmethod(dslink_class, (t_method)dslink_set_player_leds, gensym("player_leds"), A_FLOAT, 0);
-    class_addmethod(dslink_class, (t_method)dslink_set_trigger, gensym("left_trigger"), A_GIMME, 0);
-    class_addmethod(dslink_class, (t_method)dslink_set_trigger, gensym("right_trigger"), A_GIMME, 0);
+    class_addmethod(dslink_class, (t_method)dslink_set_motor, gensym("motor"), A_SYMBOL, A_FLOAT, 0);
+    class_addmethod(dslink_class, (t_method)dslink_set_led, gensym("led"), A_GIMME, 0);
+    class_addmethod(dslink_class, (t_method)dslink_set_trigger, gensym("trigger"), A_GIMME, 0);
 
     post("dslink external for Pure Data");
     post("compatible with Sony DualSense controller");
