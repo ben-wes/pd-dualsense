@@ -9,7 +9,7 @@ Pd external and Pd-Lua object to connect and display Sony DualSense controller
 * add `dualsense` to your paths or add `[declare -path dualsense]` to your patch
 * create `[dslink]` object (its output can be connected to the `[dsshow]` object)
 * send `open, poll 10` message to connect to controller and poll data in 10ms intervals
-* additionally, you can add `[sensors2quat]` and `[sensors2impulse]` from the second (IMU) outlet of [dslink] and [dsshow] to also display orientation and movement impulses
+* additionally, you can place `[sensors2quat]` and `[sensors2impulse]` between the second (IMU) outlet of [dslink] and [dsshow] to also display orientation and movement impulses
 * obviously, the main purpose is that all messages can be used to control arbitrary patch parameters
 
 ## dependencies
