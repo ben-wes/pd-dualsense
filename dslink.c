@@ -121,7 +121,7 @@ static void dslink_write(t_dslink *x) {
         return;
     }
 
-    // return if write is already pending (didn't check if that ever happens)
+    // return if write is already pending
     if (x->write_size != 0) return;
 
     if (x->is_bluetooth) {
