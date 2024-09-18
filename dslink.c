@@ -270,12 +270,12 @@ static void dslink_set_led(t_dslink *x, t_symbol *s, int argc, t_atom *argv) {
 
     if (type == gensym("mute"))
     {
-        state = argc > 1 ? atom_getintarg(1, argc, argv) : 0;
+        state = atom_getintarg(1, argc, argv);
         x->output_buf[OFFSET_MUTE_LED] = state; // mask?
     }
     else if (type == gensym("players"))
     {
-        state = argc > 1 ? atom_getintarg(1, argc, argv) : 0;
+        state = atom_getintarg(1, argc, argv);
         x->output_buf[OFFSET_PLAYER_LEDS] = state & 0x1F;  // player LEDs Only use the lower 5 bits
     }
     else if (type == gensym("color"))
