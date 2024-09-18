@@ -1,9 +1,7 @@
 # dualsense library for Pd
 Pd external and Pd-Lua object to connect and display Sony DualSense controller
 
-![dualsense/display.pd screenshot](dualsense-display.png)
-
-*(screenshot made with plugdata)*
+![dsshow.pd_lua screenshot](dsshow.png)
 
 ## usage
 
@@ -16,3 +14,9 @@ Pd external and Pd-Lua object to connect and display Sony DualSense controller
 ## dependencies
 
 * requires `pdlua` external for display (available through deken)
+
+## todos
+
+* currently only tested on macOS (arm64)
+* needs more documentation
+* some more features (some of them listed in the issues) 
