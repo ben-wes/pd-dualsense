@@ -31,7 +31,7 @@
 #define INPUT_REPORT_BT_SIZE 78
 #define INPUT_REPORT_BT_SHORT_SIZE 10
 
-#define OUTPUT_REPORT_SIZE 47 // common size without report id
+#define OUTPUT_COMMON_REPORT_SIZE 47 // common size without report id
 #define OUTPUT_REPORT_USB_SIZE 48
 #define OUTPUT_REPORT_BT_SIZE 78
 #define OUTPUT_REPORT_BT_CHECK_SIZE 75 // without checksum, but prepended salt
@@ -89,7 +89,7 @@ typedef struct _dslink {
     t_object x_obj;
     hid_device *handle;
     unsigned char input_buf[INPUT_REPORT_BT_SIZE];
-    unsigned char output_buf[OUTPUT_REPORT_SIZE];
+    unsigned char output_buf[OUTPUT_COMMON_REPORT_SIZE];
     unsigned char *write_buf; // separate buffer for writing
     int write_size;
     int is_bluetooth;
@@ -134,10 +134,10 @@ static void dslink_write(t_dslink *x) {
         crc_buffer[3] = 0x10; // Static value
 
         // Copy the common output buffer
-        memcpy(crc_buffer + 4, x->output_buf, OUTPUT_REPORT_SIZE);
+        memcpy(crc_buffer + 4, x->output_buf, OUTPUT_COMMON_REPORT_SIZE);
 
         // Zero-fill the rest of the CRC buffer
-        memset(crc_buffer + 4 + OUTPUT_REPORT_SIZE, 0, OUTPUT_REPORT_BT_CHECK_SIZE - (4 + OUTPUT_REPORT_SIZE));
+        memset(crc_buffer + 4 + OUTPUT_COMMON_REPORT_SIZE, 0, OUTPUT_REPORT_BT_CHECK_SIZE - (4 + OUTPUT_COMMON_REPORT_SIZE));
 
         // Calculate CRC
         uint32_t crc = crc32(crc_buffer, OUTPUT_REPORT_BT_CHECK_SIZE);
@@ -157,7 +157,7 @@ static void dslink_write(t_dslink *x) {
     } else {
         // USB mode
         x->write_buf[0] = USB_REPORT_ID;
-        memcpy(x->write_buf + 1, x->output_buf, OUTPUT_REPORT_SIZE);
+        memcpy(x->write_buf + 1, x->output_buf, OUTPUT_COMMON_REPORT_SIZE);
 
         // Write the USB report
         x->write_size = OUTPUT_REPORT_USB_SIZE;
@@ -208,7 +208,7 @@ static void dslink_open(t_dslink *x) {
     }
 
     // Initialize the output report buffer
-    memset(x->output_buf, 0, OUTPUT_REPORT_SIZE);
+    memset(x->output_buf, 0, OUTPUT_COMMON_REPORT_SIZE);
     
     // Set some default values
     x->output_buf[0] = 0xFF;
@@ -336,7 +336,7 @@ static void do_write(t_dslink *x) {
         return;
     }
 
-    int res = hid_write(x->handle, x->write_buf, x->write_size);
+    int res = hid_send_output_report(x->handle, x->write_buf, x->write_size);
     if (res < 0) pd_error(x, "dslink: unable to write: %ls", hid_error(x->handle));
 
     x->write_size = 0;
