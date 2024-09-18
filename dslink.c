@@ -80,7 +80,7 @@ typedef struct {
     } touch1, touch2;
     t_float battery_level;
     t_float battery_status;
-    t_float bluetooth; // FIXME: redundant
+    t_float bluetooth;
     t_float headphones, microphone;
     t_float haptic_active;
 } t_dslink_state;
@@ -317,13 +317,16 @@ static void dslink_set_led(t_dslink *x, t_symbol *s, int argc, t_atom *argv) {
     }
     else if (type == gensym("color"))
     {
-        unsigned char r, g, b;
-        r = atom_getintarg(1, argc, argv);
-        g = argc > 2 ? atom_getintarg(2, argc, argv) : r;
-        b = argc > 3 ? atom_getintarg(3, argc, argv) : r;
-        x->output_buf[OFFSET_LED_R] = r;
-        x->output_buf[OFFSET_LED_G] = g;
-        x->output_buf[OFFSET_LED_B] = b;
+        float r, g, b; // expecting 0..255
+        float brightness; // expecting 0..1 - FIXME?
+
+        r = atom_getfloatarg(1, argc, argv);
+        g = argc > 2 ? atom_getfloatarg(2, argc, argv) : r;
+        b = argc > 3 ? atom_getfloatarg(3, argc, argv) : r;
+        brightness = argc > 4 ? atom_getfloatarg(4, argc, argv) : 1.0f;
+        x->output_buf[OFFSET_LED_R] = (unsigned char)r * brightness;
+        x->output_buf[OFFSET_LED_G] = (unsigned char)g * brightness;
+        x->output_buf[OFFSET_LED_B] = (unsigned char)b * brightness;
     }
     dslink_write(x);
 }
