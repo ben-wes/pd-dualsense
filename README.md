@@ -27,9 +27,12 @@ interaction with controller elements:
 
 | selector  | atom[0] | atom[1] | values | description |
 | :--- | :--- | :--- | :--- | :--- |
-| analog  | x  |  | -1..1 | analog stick position |
-|         | y |  |  |  |
-|         | z |  |  |  |
+| analog  | l  | x | -1..1 | left analog stick position |
+|         |  | y |  |  |
+|         | r  | x | -1..1 | right analog stick position |
+|         |  | y |  |  |
+| digital | x |   | -1 / 0 / 1 | digital pad directions |
+|         | y |   |  |   |
 | trigger | l |  | 0..1 | trigger position |
 |         | r |  |  |  |
 | button  | triangle |  | 0 / 1 | pressed state |
@@ -39,18 +42,21 @@ interaction with controller elements:
 |         | square   |  |  |  |
 |         | l1   |  |  |  |
 |         | r1   |  |  |  |
-|         | l2   |  |  | digital trigger state |
+|         | l2   |  |  | digital triggers state |
 |         | r2   |  |  |  |
-|         | l3   |  |  | analog stick press |
+|         | l3   |  |  | analog sticks pressed |
 |         | r3   |  |  |  |
-|         | create   |  |  |  |
+|         | pad   |  |  | touchpad press |
+|         | create   |  |  | additional buttons |
 |         | options   |  |  |  |
 |         | ps   |  |  |  |
 |         | mute   |  |  |  |
-|         | pad   |  |  | touchpad press |
-| digital | x |   | -1 / 0 / 1 | digital pad directions |
-|         | y |   |  |   |
-|         | y |   |  |   |
+| pad     | touch1 |  active | 0 / 1 | if first touch is detected |
+|         |        |  x  |  0..1  | touch position |
+|         |        |  y  |        |  |
+|         | touch2 |  active | 0 / 1 | if second touch is detected |
+|         |        |  x  |  0..1  | touch position |
+|         |        |  y  |        |  |
 
 ### middle outlet 
 orientation interaction:
@@ -60,7 +66,7 @@ orientation interaction:
 | gyro  | x  | float | rotational velocity |
 |         | y |   |  |
 |         | z |   |  |
-| accel | x | float | acceleration (seems to be normalized to earth gravity 1) |
+| accel | x | float | acceleration (seems to be normalized to 1 for earth gravity) |
 |         | y |  |  |
 |         | z |  |  |
 
