@@ -282,13 +282,8 @@ static void dslink_set_motor(t_dslink *x, t_symbol *s, t_floatarg value) {
         pd_error(x, "dslink: no device opened");
         return;
     }
-
     int offset = (s == gensym("right")) ? OFFSET_MOTOR_RIGHT : OFFSET_MOTOR_LEFT;
-
-    // Set motor intensity
     x->output_buf[offset] = (unsigned char)(value * 255);
-
-    // Write the updated report
     dslink_write(x);
 }
 
@@ -300,18 +295,18 @@ static void dslink_set_led(t_dslink *x, t_symbol *s, int argc, t_atom *argv) {
         return;
     }
 
-    unsigned char state;
+    unsigned char value;
     t_symbol *type = atom_getsymbolarg(0, argc, argv);
 
     if (type == gensym("mute"))
     {
-        state = atom_getintarg(1, argc, argv);
-        x->output_buf[OFFSET_MUTE_LED] = state; // mask?
+        value = atom_getintarg(1, argc, argv);
+        x->output_buf[OFFSET_MUTE_LED] = value; // mask?
     }
     else if (type == gensym("players"))
     {
-        state = atom_getintarg(1, argc, argv);
-        x->output_buf[OFFSET_PLAYER_LEDS] = state & 0x1F;  // player LEDs Only use the lower 5 bits
+        value = atom_getintarg(1, argc, argv);
+        x->output_buf[OFFSET_PLAYER_LEDS] = value & 0x1F; // player LEDs only use the lower 5 bits
     }
     else if (type == gensym("color"))
     {
@@ -334,17 +329,16 @@ static void dslink_set_trigger(t_dslink *x, t_symbol *s, int argc, t_atom *argv)
         pd_error(x, "dslink: no device opened or invalid trigger settings");
         return;
     }
-
     int offset = (s == gensym("left")) ? OFFSET_LEFT_TRIGGER : OFFSET_RIGHT_TRIGGER;
 
     for (int i = 0; i < 11; i++) {
         x->output_buf[offset + i] = (unsigned char)atom_getfloat(&argv[i]);
     }
-
     dslink_write(x);
 }
 
 static void dslink_state(t_dslink *x) {
+    dslink_read(x);
     parse_input_report(x, x->input_buf, 0);
 }
 
