@@ -90,12 +90,15 @@ typedef struct _dslink {
     hid_device *handle;
     unsigned char input_buf[INPUT_REPORT_BT_SIZE];
     unsigned char output_buf[OUTPUT_REPORT_SIZE];
+    unsigned char *write_buf; // separate buffer for writing
+    int write_size;
     int is_bluetooth;
     t_outlet *data_out;
     t_outlet *imu_out;
     t_outlet *status_out;
     // t_outlet *debug_outlet;
     t_clock *poll_clock;
+    t_clock *write_clock; // clock for write scheduling
     t_float poll_interval;
     int nofilter;
     unsigned char sequence_number;
@@ -109,6 +112,8 @@ t_class *dslink_class;
 static uint32_t crc32(const uint8_t *data, size_t len);
 static void parse_input_report(t_dslink *x, const unsigned char *buf, int filter);
 static void output_value_message(t_outlet *outlet, const char *parts[], int num_parts, t_float *state_value, t_float value, int filter);
+static void do_write(t_dslink *x);
+static void tick(t_dslink *x);
 
 
 static void dslink_write(t_dslink *x) {
@@ -117,18 +122,23 @@ static void dslink_write(t_dslink *x) {
         return;
     }
 
+    // if (x->write_size != 0) {
+    //     // A write is already pending
+    //     pd_error(x, "dslink: write already in progress");
+    //     return;
+    // }
+
     // t_atom output_atoms[OUTPUT_REPORT_BT_SIZE]; // for debug purposes
     // int num_bytes;
 
     if (x->is_bluetooth) {
-        unsigned char bt_buffer[OUTPUT_REPORT_BT_SIZE];
         unsigned char crc_buffer[OUTPUT_REPORT_BT_CHECK_SIZE];
 
         // Prepare CRC buffer
-        crc_buffer[0] = 0xA2;  // Salt
+        crc_buffer[0] = 0xA2; // Salt
         crc_buffer[1] = BT_REPORT_ID;
         crc_buffer[2] = x->sequence_number;
-        crc_buffer[3] = 0x10;  // Static value
+        crc_buffer[3] = 0x10; // Static value
 
         // Copy the common output buffer
         memcpy(crc_buffer + 4, x->output_buf, OUTPUT_REPORT_SIZE);
@@ -140,11 +150,11 @@ static void dslink_write(t_dslink *x) {
         uint32_t crc = crc32(crc_buffer, OUTPUT_REPORT_BT_CHECK_SIZE);
 
         // Prepare the actual Bluetooth output buffer
-        memcpy(bt_buffer, crc_buffer + 1, OUTPUT_REPORT_BT_SIZE - 4);  // Copy everything except the salt and CRC
-        bt_buffer[74] = (crc >> 0) & 0xFF;
-        bt_buffer[75] = (crc >> 8) & 0xFF;
-        bt_buffer[76] = (crc >> 16) & 0xFF;
-        bt_buffer[77] = (crc >> 24) & 0xFF;
+        memcpy(x->write_buf, crc_buffer + 1, OUTPUT_REPORT_BT_SIZE - 4); // Copy everything except the salt and CRC
+        x->write_buf[74] = (crc >> 0) & 0xFF;
+        x->write_buf[75] = (crc >> 8) & 0xFF;
+        x->write_buf[76] = (crc >> 16) & 0xFF;
+        x->write_buf[77] = (crc >> 24) & 0xFF;
 
         // Increment sequence number
         x->sequence_number = (x->sequence_number + 16) & 0xFF;
@@ -156,15 +166,11 @@ static void dslink_write(t_dslink *x) {
         // num_bytes = OUTPUT_REPORT_BT_SIZE;
 
         // Write the Bluetooth report
-        int res = hid_write(x->handle, bt_buffer, OUTPUT_REPORT_BT_SIZE);
-        if (res < 0) {
-            pd_error(x, "dslink: error writing to device (Bluetooth mode)");
-        }
+        x->write_size = OUTPUT_REPORT_BT_SIZE;
     } else {
         // USB mode
-        unsigned char usb_buffer[OUTPUT_REPORT_USB_SIZE];
-        usb_buffer[0] = USB_REPORT_ID;
-        memcpy(usb_buffer + 1, x->output_buf, OUTPUT_REPORT_SIZE);
+        x->write_buf[0] = USB_REPORT_ID;
+        memcpy(x->write_buf + 1, x->output_buf, OUTPUT_REPORT_SIZE);
 
         // // Prepare output atoms
         // for (int i = 0; i < OUTPUT_REPORT_USB_SIZE; i++) {
@@ -173,11 +179,10 @@ static void dslink_write(t_dslink *x) {
         // num_bytes = OUTPUT_REPORT_USB_SIZE;
 
         // Write the USB report
-        int res = hid_write(x->handle, usb_buffer, OUTPUT_REPORT_USB_SIZE);
-        if (res < 0) {
-            pd_error(x, "dslink: error writing to device (USB mode)");
-        }
+        x->write_size = OUTPUT_REPORT_USB_SIZE;
     }
+
+    clock_delay(x->write_clock, 0);
     // outlet_list(x->debug_outlet, &s_list, num_bytes, output_atoms);
 }
 
@@ -272,19 +277,12 @@ static inline int dslink_read(t_dslink *x) {
     return 1;
 }
 
-static void dslink_tick(t_dslink *x)
-{
-    if (dslink_read(x))
-        clock_delay(x->poll_clock, x->poll_interval);
-}
-
 static void dslink_set_motor(t_dslink *x, t_symbol *s, t_floatarg value) {
     if (!x->handle) {
         pd_error(x, "dslink: no device opened");
         return;
     }
 
-    post("name: %s", s->s_name);
     int offset = (s == gensym("right")) ? OFFSET_MOTOR_RIGHT : OFFSET_MOTOR_LEFT;
 
     // Set motor intensity
@@ -350,28 +348,26 @@ static void dslink_state(t_dslink *x) {
     parse_input_report(x, x->input_buf, 0);
 }
 
-static void dslink_free(t_dslink *x) {
-    dslink_close(x);
-    clock_free(x->poll_clock);
-}
-
-static void *dslink_new(void) {
-    t_dslink *x = (t_dslink *)pd_new(dslink_class);
-
-    x->data_out = outlet_new(&x->x_obj, &s_anything);
-    x->imu_out = outlet_new(&x->x_obj, &s_anything);
-    x->status_out = outlet_new(&x->x_obj, &s_anything);
-    // x->debug_outlet = outlet_new(&x->x_obj, &s_list);
-
-    x->poll_clock = clock_new(x, (t_method)dslink_tick);
-    x->poll_interval = 0;
-    x->handle = NULL;
-    x->sequence_number = 0;
-
-    return (void *)x;
-}
-
 // Utility functions
+
+// perform actual HID write, called by clock
+static void do_write(t_dslink *x) {
+    if (!x->handle || x->write_size == 0) {
+        pd_error(x, "dslink: no device opened or no data to write");
+        return;
+    }
+
+    int res = hid_write(x->handle, x->write_buf, x->write_size);
+    if (res < 0) pd_error(x, "dslink: unable to write: %ls", hid_error(x->handle));
+
+    x->write_size = 0;
+}
+
+static void tick(t_dslink *x)
+{
+    if (dslink_read(x))
+        clock_delay(x->poll_clock, x->poll_interval);
+}
 
 static void output_value_message(t_outlet *outlet, const char *parts[], int num_parts, t_float *state_value, t_float value, int filter) {
     if (*state_value != value || !filter) {
@@ -529,6 +525,33 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf, int filter
     output_value_message(x->status_out, (const char*[]){"haptic", "active"}, 2, &x->state.haptic_active, (buf[offset + 54] & 0x02) != 0, filter); // FIXME: check
 }
 
+
+static void dslink_free(t_dslink *x) {
+    dslink_close(x);
+    clock_free(x->poll_clock);
+    clock_free(x->write_clock);
+    freebytes(x->write_buf, OUTPUT_REPORT_BT_SIZE * sizeof(unsigned char));
+}
+
+static void *dslink_new(void) {
+    t_dslink *x = (t_dslink *)pd_new(dslink_class);
+
+    x->write_buf = (unsigned char *)getbytes(OUTPUT_REPORT_BT_SIZE);  // Allocate max size
+    x->write_size = 0;  // Initially, there's nothing to write
+
+    x->data_out = outlet_new(&x->x_obj, &s_anything);
+    x->imu_out = outlet_new(&x->x_obj, &s_anything);
+    x->status_out = outlet_new(&x->x_obj, &s_anything);
+    // x->debug_outlet = outlet_new(&x->x_obj, &s_list);
+
+    x->poll_clock = clock_new(x, (t_method)tick);
+    x->write_clock = clock_new(x, (t_method)do_write);
+    x->poll_interval = 0;
+    x->handle = NULL;
+    x->sequence_number = 0;
+
+    return (void *)x;
+}
 
 #if defined(_WIN32)
 __declspec(dllexport)
