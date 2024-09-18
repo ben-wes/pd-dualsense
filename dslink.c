@@ -52,6 +52,39 @@
 #define OFFSET_LEFT_TRIGGER 9
 #define OFFSET_RIGHT_TRIGGER 20
 
+typedef enum {
+    BATTERY_UNKNOWN,
+    BATTERY_DISCHARGING,
+    BATTERY_CHARGING,
+    BATTERY_FULL,
+    BATTERY_TEMP_HIGH,
+    BATTERY_TEMP_LOW
+} battery_status_t;
+
+typedef struct {
+    struct {
+        struct { t_float x, y; } l, r;
+    } analog;
+    struct { t_float l, r; } trigger;
+    struct {
+        t_float triangle, circle, cross, square;
+        t_float l1, r1, l2, r2;
+        t_float create, options, l3, r3;
+        t_float ps, pad, mute;
+    } button;
+    struct { t_float x, y; } digital;
+    struct { t_float x, y, z; } gyro, accel;
+    struct {
+        t_float active;
+        t_float x, y;
+    } touch1, touch2;
+    t_float battery_level;
+    t_float battery_status;
+    t_float bluetooth; // FIXME: redundant
+    t_float headphones, microphone;
+    t_float haptic_active;
+} t_dslink_state;
+
 typedef struct _dslink {
     t_object x_obj;
     hid_device *handle;
@@ -64,16 +97,18 @@ typedef struct _dslink {
     // t_outlet *debug_outlet;
     t_clock *poll_clock;
     t_float poll_interval;
+    int nofilter;
     unsigned char sequence_number;
+
+    t_dslink_state state;
 } t_dslink;
 
 t_class *dslink_class;
 
 // utility function prototypes
 static uint32_t crc32(const uint8_t *data, size_t len);
-static void parse_input_report(t_dslink *x, const unsigned char *buf);
-static void output_value_message(t_outlet *outlet, const char *parts[], int num_parts, t_float value);
-static void output_symbol_message(t_outlet *outlet, const char *parts[], int num_parts, const char *value);
+static void parse_input_report(t_dslink *x, const unsigned char *buf, int filter);
+static void output_value_message(t_outlet *outlet, const char *parts[], int num_parts, t_float *state_value, t_float value, int filter);
 
 
 static void dslink_write(t_dslink *x) {
@@ -226,7 +261,7 @@ static inline int dslink_read(t_dslink *x) {
 
     int res = hid_read(x->handle, x->input_buf, INPUT_REPORT_BT_SIZE);
     if (res > 0) {
-        parse_input_report(x, x->input_buf);
+        parse_input_report(x, x->input_buf, 1);
     } else if (res < 0) {
         pd_error(x, "dslink: error reading from device");
     }
@@ -308,6 +343,10 @@ static void dslink_set_trigger(t_dslink *x, t_symbol *s, int argc, t_atom *argv)
     dslink_write(x);
 }
 
+static void dslink_state(t_dslink *x) {
+    parse_input_report(x, x->input_buf, 0);
+}
+
 static void dslink_free(t_dslink *x) {
     dslink_close(x);
     clock_free(x->poll_clock);
@@ -331,22 +370,16 @@ static void *dslink_new(void) {
 
 // Utility functions
 
-static void output_value_message(t_outlet *outlet, const char *parts[], int num_parts, t_float value) {
-    t_atom atoms[num_parts + 1];
-    for (int i = 0; i < num_parts; i++) {
-        SETSYMBOL(&atoms[i], gensym(parts[i]));
+static void output_value_message(t_outlet *outlet, const char *parts[], int num_parts, t_float *state_value, t_float value, int filter) {
+    if (*state_value != value || !filter) {
+        *state_value = value;
+        t_atom atoms[num_parts + 1];
+        for (int i = 0; i < num_parts; i++) {
+            SETSYMBOL(&atoms[i], gensym(parts[i]));
+        }
+        SETFLOAT(&atoms[num_parts], value);
+        outlet_anything(outlet, gensym(parts[0]), num_parts, &atoms[1]);
     }
-    SETFLOAT(&atoms[num_parts], value);
-    outlet_anything(outlet, gensym(parts[0]), num_parts, &atoms[1]);
-}
-
-static void output_symbol_message(t_outlet *outlet, const char *parts[], int num_parts, const char *value) {
-    t_atom atoms[num_parts + 1];
-    for (int i = 0; i < num_parts; i++) {
-        SETSYMBOL(&atoms[i], gensym(parts[i]));
-    }
-    SETSYMBOL(&atoms[num_parts], gensym(value));
-    outlet_anything(outlet, gensym(parts[0]), num_parts, &atoms[1]);
 }
 
 static uint32_t crc32(const uint8_t *data, size_t len) {
@@ -360,37 +393,37 @@ static uint32_t crc32(const uint8_t *data, size_t len) {
     return ~crc;
 }
 
-static void parse_input_report(t_dslink *x, const unsigned char *buf) {
+static void parse_input_report(t_dslink *x, const unsigned char *buf, int filter) {
     int offset = x->is_bluetooth ? 2 : 1;
 
     // Left analog
-    output_value_message(x->data_out, (const char*[]){"analog", "l", "x"}, 3, (buf[offset + 0] - 128) / 128.0f);
-    output_value_message(x->data_out, (const char*[]){"analog", "l", "y"}, 3, (buf[offset + 1] - 128) / -128.0f);
+    output_value_message(x->data_out, (const char*[]){"analog", "l", "x"}, 3, &x->state.analog.l.x, (buf[offset + 0] - 128) / 128.0f, filter);
+    output_value_message(x->data_out, (const char*[]){"analog", "l", "y"}, 3, &x->state.analog.l.y, (buf[offset + 1] - 128) / -128.0f, filter);
 
     // Right analog
-    output_value_message(x->data_out, (const char*[]){"analog", "r", "x"}, 3, (buf[offset + 2] - 128) / 128.0f);
-    output_value_message(x->data_out, (const char*[]){"analog", "r", "y"}, 3, (buf[offset + 3] - 128) / -128.0f);
+    output_value_message(x->data_out, (const char*[]){"analog", "r", "x"}, 3, &x->state.analog.r.x, (buf[offset + 2] - 128) / 128.0f, filter);
+    output_value_message(x->data_out, (const char*[]){"analog", "r", "y"}, 3, &x->state.analog.r.y, (buf[offset + 3] - 128) / -128.0f, filter);
 
     // Triggers
-    output_value_message(x->data_out, (const char*[]){"trigger", "l"}, 2, buf[offset + 4] / 255.0f);
-    output_value_message(x->data_out, (const char*[]){"trigger", "r"}, 2, buf[offset + 5] / 255.0f);
+    output_value_message(x->data_out, (const char*[]){"trigger", "l"}, 2, &x->state.trigger.l, buf[offset + 4] / 255.0f, filter);
+    output_value_message(x->data_out, (const char*[]){"trigger", "r"}, 2, &x->state.trigger.r, buf[offset + 5] / 255.0f, filter);
 
     // Buttons
-    output_value_message(x->data_out, (const char*[]){"button", "triangle"}, 2, (buf[offset + 7] & 0x80) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "circle"}, 2, (buf[offset + 7] & 0x40) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "cross"}, 2, (buf[offset + 7] & 0x20) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "square"}, 2, (buf[offset + 7] & 0x10) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "l1"}, 2, (buf[offset + 8] & 0x01) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "r1"}, 2, (buf[offset + 8] & 0x02) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "l2"}, 2, (buf[offset + 8] & 0x04) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "r2"}, 2, (buf[offset + 8] & 0x08) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "create"}, 2, (buf[offset + 8] & 0x10) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "options"}, 2, (buf[offset + 8] & 0x20) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "l3"}, 2, (buf[offset + 8] & 0x40) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "r3"}, 2, (buf[offset + 8] & 0x80) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "ps"}, 2, (buf[offset + 9] & 0x01) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "pad"}, 2, (buf[offset + 9] & 0x02) != 0);
-    output_value_message(x->data_out, (const char*[]){"button", "mute"}, 2, (buf[offset + 9] & 0x04) != 0);
+    output_value_message(x->data_out, (const char*[]){"button", "triangle"}, 2, &x->state.button.triangle, (buf[offset + 7] & 0x80) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "circle"}, 2, &x->state.button.circle, (buf[offset + 7] & 0x40) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "cross"}, 2, &x->state.button.cross, (buf[offset + 7] & 0x20) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "square"}, 2, &x->state.button.square, (buf[offset + 7] & 0x10) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "l1"}, 2, &x->state.button.l1, (buf[offset + 8] & 0x01) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "r1"}, 2, &x->state.button.r1, (buf[offset + 8] & 0x02) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "l2"}, 2, &x->state.button.l2, (buf[offset + 8] & 0x04) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "r2"}, 2, &x->state.button.r2, (buf[offset + 8] & 0x08) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "l3"}, 2, &x->state.button.l3, (buf[offset + 8] & 0x40) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "r3"}, 2, &x->state.button.r3, (buf[offset + 8] & 0x80) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "create"}, 2, &x->state.button.create, (buf[offset + 8] & 0x10) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "options"}, 2, &x->state.button.options, (buf[offset + 8] & 0x20) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "ps"}, 2, &x->state.button.ps, (buf[offset + 9] & 0x01) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "pad"}, 2, &x->state.button.pad, (buf[offset + 9] & 0x02) != 0, filter);
+    output_value_message(x->data_out, (const char*[]){"button", "mute"}, 2, &x->state.button.mute, (buf[offset + 9] & 0x04) != 0, filter);
 
     // D-pad
     uint8_t digital = buf[offset + 7] & 0x0F;
@@ -405,8 +438,8 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
         case 6: digital_x = -1; break;
         case 7: digital_x = -1; digital_y = 1; break;
     }
-    output_value_message(x->data_out, (const char*[]){"digital", "x"}, 2, digital_x);
-    output_value_message(x->data_out, (const char*[]){"digital", "y"}, 2, digital_y);
+    output_value_message(x->data_out, (const char*[]){"digital", "x"}, 2, &x->state.digital.x, digital_x, filter);
+    output_value_message(x->data_out, (const char*[]){"digital", "y"}, 2, &x->state.digital.y, digital_y, filter);
 
     // Gyroscope
     uint16_t gyro_x_raw = (uint16_t)((buf[offset + 17]) | buf[offset + 16] << 8);
@@ -417,9 +450,9 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     t_float gyro_y = (t_float)((gyro_y_raw > 32767) ? gyro_y_raw - 65536 : gyro_y_raw) / 8192.0f;
     t_float gyro_z = (t_float)((gyro_z_raw > 32767) ? gyro_z_raw - 65536 : gyro_z_raw) / 8192.0f;
 
-    output_value_message(x->imu_out, (const char*[]){"gyro", "x"}, 2, gyro_x);
-    output_value_message(x->imu_out, (const char*[]){"gyro", "y"}, 2, gyro_y);
-    output_value_message(x->imu_out, (const char*[]){"gyro", "z"}, 2, gyro_z);
+    output_value_message(x->imu_out, (const char*[]){"gyro", "x"}, 2, &x->state.gyro.x, gyro_x, filter);
+    output_value_message(x->imu_out, (const char*[]){"gyro", "y"}, 2, &x->state.gyro.y, gyro_y, filter);
+    output_value_message(x->imu_out, (const char*[]){"gyro", "z"}, 2, &x->state.gyro.z, gyro_z, filter);
 
     // Accelerometer
     uint16_t accel_x_raw = (uint16_t)((buf[offset + 23]) | buf[offset + 22] << 8);
@@ -430,9 +463,9 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
     t_float accel_y = (t_float)((accel_y_raw > 32767) ? accel_y_raw - 65536 : accel_y_raw) / 8192.0f;
     t_float accel_z = (t_float)((accel_z_raw > 32767) ? accel_z_raw - 65536 : accel_z_raw) / 8192.0f;
 
-    output_value_message(x->imu_out, (const char*[]){"accel", "x"}, 2, accel_x);
-    output_value_message(x->imu_out, (const char*[]){"accel", "y"}, 2, accel_y);
-    output_value_message(x->imu_out, (const char*[]){"accel", "z"}, 2, accel_z);
+    output_value_message(x->imu_out, (const char*[]){"accel", "x"}, 2, &x->state.accel.x, accel_x, filter);
+    output_value_message(x->imu_out, (const char*[]){"accel", "y"}, 2, &x->state.accel.y, accel_y, filter);
+    output_value_message(x->imu_out, (const char*[]){"accel", "z"}, 2, &x->state.accel.z, accel_z, filter);
 
     // Touchpad
     for (int i = 0; i < 2; i++) {
@@ -442,49 +475,55 @@ static void parse_input_report(t_dslink *x, const unsigned char *buf) {
         uint8_t touch_data3 = buf[touch_offset + 2];
         uint8_t touch_data4 = buf[touch_offset + 3];
         int is_active = !(touch_data1 & 0x80);
-        
+
         const char* touch_id = (i == 0) ? "touch1" : "touch2";
-        
+
         if (is_active) {
             int touch_x = ((touch_data3 & 0x0F) << 8) | touch_data2;
             int touch_y = (touch_data4 << 4) | ((touch_data3 & 0xF0) >> 4);
             
-            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "active"}, 3, 1.0f);
-            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "x"}, 3, touch_x / 1920.0f);
-            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "y"}, 3, touch_y / 1080.0f);
+            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "active"}, 3,
+                strcmp(touch_id, "touch1") == 0 ? &x->state.touch1.active : &x->state.touch2.active, 1.0f, filter);
+            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "x"}, 3,
+                strcmp(touch_id, "touch1") == 0 ? &x->state.touch1.active : &x->state.touch2.x, touch_x / 1920.0f, filter);
+            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "y"}, 3,
+                strcmp(touch_id, "touch1") == 0 ? &x->state.touch1.active : &x->state.touch2.y, touch_y / 1080.0f, filter);
         } else {
-            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "active"}, 3, 0.0f);
+            output_value_message(x->data_out, (const char*[]){"pad", touch_id, "active"}, 3,
+                strcmp(touch_id, "touch1") == 0 ? &x->state.touch1.active : &x->state.touch2.active, 0.0f, filter);
         }
     }
 
     // Battery level and status
     uint8_t battery_data = buf[offset + 52];
-    int battery_level = battery_data & 0x0F;
-    int battery_status = (battery_data & 0xF0) >> 4;
+    float battery_level = (int)battery_data & 0x0F;
 
-    output_value_message(x->status_out, (const char*[]){"battery", "level"}, 2, battery_level);
+    output_value_message(x->status_out, (const char*[]){"battery", "level"}, 2, &x->state.battery_level, battery_level, filter);
 
-    const char *status_str;
-    switch (battery_status) {
-        case 0x0: status_str = "discharging"; break;
-        case 0x1: status_str = "charging"; break;
-        case 0x2: status_str = "full"; break;
-        case 0xA: status_str = "temp_high"; break;
-        case 0xB: status_str = "temp_low"; break;
-        default: status_str = "unknown";
+
+    // For battery status
+    float battery_status;
+    switch ((buf[offset + 52] & 0xF0) >> 4) {
+        case 0x0: battery_status = (float)BATTERY_DISCHARGING; break;
+        case 0x1: battery_status = (float)BATTERY_CHARGING; break;
+        case 0x2: battery_status = (float)BATTERY_FULL; break;
+        case 0xA: battery_status = (float)BATTERY_TEMP_HIGH; break;
+        case 0xB: battery_status = (float)BATTERY_TEMP_LOW; break;
+        default: battery_status = (float)BATTERY_UNKNOWN;
     }
-    output_symbol_message(x->status_out, (const char*[]){"battery", "status"}, 2, status_str);
+
+    output_value_message(x->status_out, (const char*[]){"battery", "status"}, 2, &x->state.battery_status, battery_status, filter);
 
     // Connection type (already known from device opening)
-    output_symbol_message(x->status_out, (const char*[]){"connection"}, 1, x->is_bluetooth ? "bluetooth" : "usb");
+    output_value_message(x->status_out, (const char*[]){"bluetooth"}, 1, &x->state.bluetooth, x->is_bluetooth ? 1.0f : 0.0f, filter);
 
     // Headphone and mic status
     uint8_t headset_data = buf[offset + 53];
-    output_value_message(x->status_out, (const char*[]){"headphones"}, 1, (headset_data & 0x01) != 0);
-    output_value_message(x->status_out, (const char*[]){"microphone"}, 1, (headset_data & 0x02) != 0);
+    output_value_message(x->status_out, (const char*[]){"headphones"}, 1, &x->state.headphones, (headset_data & 0x01) != 0, filter);
+    output_value_message(x->status_out, (const char*[]){"microphone"}, 1, &x->state.microphone, (headset_data & 0x02) != 0, filter);
 
     // Haptic feedback motors active status
-    output_value_message(x->status_out, (const char*[]){"haptic", "active"}, 2, (buf[offset + 54] & 0x02) != 0); // FIXME: check
+    output_value_message(x->status_out, (const char*[]){"haptic", "active"}, 2, &x->state.haptic_active, (buf[offset + 54] & 0x02) != 0, filter); // FIXME: check
 }
 
 
@@ -504,6 +543,7 @@ void dslink_setup(void) {
     class_addbang(dslink_class, dslink_read);
     class_addmethod(dslink_class, (t_method)dslink_read, gensym("read"), 0);
     class_addmethod(dslink_class, (t_method)dslink_open, gensym("open"), 0);
+    class_addmethod(dslink_class, (t_method)dslink_state, gensym("state"), 0);
     class_addmethod(dslink_class, (t_method)dslink_close, gensym("close"), 0);
     class_addmethod(dslink_class, (t_method)dslink_poll, gensym("poll"), A_FLOAT, 0);
     class_addmethod(dslink_class, (t_method)dslink_set_motor, gensym("motor"), A_SYMBOL, A_FLOAT, 0);
