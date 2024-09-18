@@ -113,7 +113,7 @@ static uint32_t crc32(const uint8_t *data, size_t len);
 static void parse_input_report(t_dslink *x, const unsigned char *buf, int filter);
 static void output_value_message(t_outlet *outlet, const char *parts[], int num_parts, t_float *state_value, t_float value, int filter);
 static void do_write(t_dslink *x);
-static void tick(t_dslink *x);
+static void poll_tick(t_dslink *x);
 
 
 static void dslink_write(t_dslink *x) {
@@ -363,7 +363,7 @@ static void do_write(t_dslink *x) {
     x->write_size = 0;
 }
 
-static void tick(t_dslink *x)
+static void poll_tick(t_dslink *x)
 {
     if (dslink_read(x))
         clock_delay(x->poll_clock, x->poll_interval);
@@ -544,7 +544,7 @@ static void *dslink_new(void) {
     x->status_out = outlet_new(&x->x_obj, &s_anything);
     // x->debug_outlet = outlet_new(&x->x_obj, &s_list);
 
-    x->poll_clock = clock_new(x, (t_method)tick);
+    x->poll_clock = clock_new(x, (t_method)poll_tick);
     x->write_clock = clock_new(x, (t_method)do_write);
     x->poll_interval = 0;
     x->handle = NULL;
