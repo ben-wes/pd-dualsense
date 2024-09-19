@@ -28,6 +28,8 @@
 #define DSLINK_MINOR_VERSION 2
 #define DSLINK_BUGFIX_VERSION 0
 
+#define OPEN_POLL_INTERVAL 200
+
 #define DUALSENSE_VID 0x054C
 #define DUALSENSE_PID 0x0CE6
 
@@ -106,6 +108,7 @@ typedef struct _dslink {
     t_outlet *imu_out;
     t_outlet *status_out;
     t_clock *poll_clock;
+    t_clock *open_clock;
     t_clock *write_clock; // clock for write scheduling
     t_float poll_interval;
 
@@ -123,80 +126,9 @@ static uint32_t crc32(const uint8_t *data, size_t len);
 static void parse_input_report(t_dslink *x, const unsigned char *buf, int filter);
 static void output_value(t_outlet *outlet, const char *parts[], int num_parts, t_float *state_value, t_float value, int filter);
 static void do_write(t_dslink *x);
+static int do_open(t_dslink *x);
 static void poll_tick(t_dslink *x);
 
-static void dslink_write(t_dslink *x) {
-    // write if no other write is pending
-    if (x->write_size != 0) return;
-
-    x->write_size = x->is_bluetooth ? OUTPUT_REPORT_BT_SIZE : OUTPUT_REPORT_USB_SIZE;
-    clock_delay(x->write_clock, 0);
-}
-
-static void dslink_open(t_dslink *x) {
-    if (x->handle) {
-        hid_close(x->handle);
-    }
-
-    x->handle = hid_open(DUALSENSE_VID, DUALSENSE_PID, NULL);
-    if (!x->handle) {
-        pd_error(x, "dslink: unable to open device");
-        return;
-    }
-
-    // request calibration report
-    unsigned char calibration_buf[CALIBRATION_REPORT_SIZE] = {0};
-    calibration_buf[0] = CALIBRATION_FEATURE_REPORT_ID;
-    int res = hid_get_feature_report(x->handle, calibration_buf, sizeof(calibration_buf));
-    
-    if (res < 0) {
-        pd_error(x, "dslink: failed to get calibration report");
-        // continue anyway, as this might still work for USB connections
-    } else {
-        // post("dslink: received calibration report, size: %d", res);
-        // here we could parse the calibration data
-    }
-
-    // detect if we're in Bluetooth or USB mode
-    res = hid_read_timeout(x->handle, x->read_buf, INPUT_REPORT_BT_SIZE, 1000);
-
-    memset(x->write_buf, 0, sizeof(x->write_buf));
-    x->write_buf[0] = BT_REPORT_SALT;
-    x->write_buf[1] = BT_REPORT_ID;
-
-    if (res == INPUT_REPORT_BT_SIZE || res == INPUT_REPORT_BT_SHORT_SIZE) {
-        x->is_bluetooth = 1;
-        x->write_buf[3] = 0x10; // not sure necessity of 0x10 - copied from other dualsense integrations
-        post("dslink: connected via Bluetooth");
-    } else if (res == INPUT_REPORT_USB_SIZE) {
-        x->is_bluetooth = 0;
-        x->write_buf[3] = USB_REPORT_ID;
-        post("dslink: connected via USB");
-    } else {
-        pd_error(x, "dslink: unable to determine connection type");
-        hid_close(x->handle);
-        x->handle = NULL;
-        return;
-    }
-
-    x->write_buf[4] = 0xFF;
-    x->write_buf[5] = 0x7F;
-    x->write_buf[9] = 0xFF;
-
-    x->write_size = x->is_bluetooth ? OUTPUT_REPORT_BT_SIZE : OUTPUT_REPORT_USB_SIZE;
-    do_write(x); // write immediately to ensure that LED flag will be switched
-    x->write_buf[5] = 0x77; // release LED with next report
-
-    hid_set_nonblocking(x->handle, 1);
-}
-
-static void dslink_close(t_dslink *x) {
-    if (x->handle) {
-        hid_close(x->handle);
-        x->handle = NULL;
-        post("dslink: connection closed");
-    }
-}
 
 static void dslink_poll(t_dslink *x, t_floatarg f) {
     x->poll_interval = f;
@@ -211,16 +143,41 @@ static inline int dslink_read(t_dslink *x) {
     }
 
     int res = hid_read(x->handle, x->read_buf, INPUT_REPORT_BT_SIZE);
-    if (res > 0) {
-        parse_input_report(x, x->read_buf, 1);
-    } else if (res < 0) {
+    if (res < 0) {
         pd_error(x, "dslink: error reading from device");
+        return 0;
     }
+    parse_input_report(x, x->read_buf, 1);
 
     if (x->poll_interval > 0) {
         clock_delay(x->poll_clock, x->poll_interval);
     }
     return 1;
+}
+
+static void dslink_open(t_dslink *x) {
+    if (do_open(x))
+        dslink_poll(x, 10);
+    else
+        pd_error(x, "dslink: unable to open device");
+}
+
+static void dslink_write(t_dslink *x) {
+    // write if no other write is pending
+    if (x->write_size != 0) return;
+
+    x->write_size = x->is_bluetooth ? OUTPUT_REPORT_BT_SIZE : OUTPUT_REPORT_USB_SIZE;
+    clock_delay(x->write_clock, 0);
+}
+
+static void dslink_close(t_dslink *x) {
+    clock_unset(x->poll_clock);
+    clock_unset(x->open_clock);
+    if (x->handle) {
+        hid_close(x->handle);
+        x->handle = NULL;
+        post("dslink: connection closed");
+    }
 }
 
 static void dslink_set_motor(t_dslink *x, t_symbol *s, t_floatarg value) {
@@ -326,10 +283,64 @@ static void do_write(t_dslink *x) {
     x->write_size = 0;
 }
 
+static int do_open(t_dslink *x) {
+    if (x->handle) hid_close(x->handle);
+
+    x->handle = hid_open(DUALSENSE_VID, DUALSENSE_PID, NULL);
+    if (!x->handle) return 0;
+
+    // request calibration report
+    unsigned char calibration_buf[CALIBRATION_REPORT_SIZE] = {0};
+    calibration_buf[0] = CALIBRATION_FEATURE_REPORT_ID;
+    int res = hid_get_feature_report(x->handle, calibration_buf, sizeof(calibration_buf));
+    
+    if (res < 0) pd_error(x, "dslink: failed to get calibration report");
+    // continue anyway without calibration report, as this might still work for USB connections
+    // for res > 0, we could parse the calibration data
+
+    // detect if we're in Bluetooth or USB mode
+    res = hid_read_timeout(x->handle, x->read_buf, INPUT_REPORT_BT_SIZE, 1000);
+
+    memset(x->write_buf, 0, sizeof(x->write_buf));
+    x->write_buf[0] = BT_REPORT_SALT;
+    x->write_buf[1] = BT_REPORT_ID;
+
+    if (res == INPUT_REPORT_BT_SIZE || res == INPUT_REPORT_BT_SHORT_SIZE) {
+        x->is_bluetooth = 1;
+        x->write_buf[3] = 0x10; // not sure necessity of 0x10 - copied from other dualsense integrations
+        post("dslink: connected via Bluetooth");
+    } else if (res == INPUT_REPORT_USB_SIZE) {
+        x->is_bluetooth = 0;
+        x->write_buf[3] = USB_REPORT_ID;
+        post("dslink: connected via USB");
+    } else
+        pd_error(x, "dslink: unable to determine connection type");
+
+    x->write_buf[4] = 0xFF;
+    x->write_buf[5] = 0x7F;
+    x->write_buf[9] = 0xFF;
+
+    x->write_size = x->is_bluetooth ? OUTPUT_REPORT_BT_SIZE : OUTPUT_REPORT_USB_SIZE;
+    do_write(x); // write immediately to ensure that LED flag will be switched
+    x->write_buf[5] = 0x77; // release LED with next report
+
+    hid_set_nonblocking(x->handle, 1);
+    return 1;
+}
+
 static void poll_tick(t_dslink *x)
 {
     if (dslink_read(x))
         clock_delay(x->poll_clock, x->poll_interval);
+}
+
+static void open_tick(t_dslink *x)
+{
+    if (do_open(x)) {
+        clock_unset(x->open_clock);
+        dslink_poll(x, 10);
+    } else
+        clock_delay(x->open_clock, OPEN_POLL_INTERVAL);
 }
 
 static void output_value(t_outlet *outlet, const char *parts[], int num_parts, t_float *state_value, t_float value, int filter) {
@@ -362,7 +373,7 @@ static uint32_t crc32(const uint8_t *data, size_t len) {
     return ~crc;
 }
 
-static void parse_input_report(t_dslink *x, const unsigned char *buf, int filter) {
+static inline void parse_input_report(t_dslink *x, const unsigned char *buf, int filter) {
     int offset = x->is_bluetooth ? 2 : 1;
 
     // Left analog
@@ -501,6 +512,7 @@ static void dslink_free(t_dslink *x) {
 
     clock_unset(x->poll_clock);
     clock_unset(x->write_clock);
+    clock_unset(x->open_clock);
 
     if (x->poll_clock) {
         clock_free(x->poll_clock);
@@ -509,6 +521,10 @@ static void dslink_free(t_dslink *x) {
     if (x->write_clock) {
         clock_free(x->write_clock);
         x->write_clock = NULL;
+    }
+    if (x->open_clock) {
+        clock_free(x->open_clock);
+        x->open_clock = NULL;
     }
 
     hid_exit();
@@ -522,12 +538,15 @@ static void *dslink_new(void) {
     x->imu_out = outlet_new(&x->x_obj, &s_anything);
     x->status_out = outlet_new(&x->x_obj, &s_anything);
 
+    x->open_clock = clock_new(x, (t_method)open_tick);
     x->poll_clock = clock_new(x, (t_method)poll_tick);
     x->write_clock = clock_new(x, (t_method)do_write);
     x->poll_interval = 0;
     x->handle = NULL;
 
     memset(&x->state, 0, sizeof(t_dslink_state));
+    post("dslink: trying to connect ...");
+    clock_delay(x->open_clock, 0);
     return (void *)x;
 }
 
