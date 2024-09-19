@@ -1,6 +1,8 @@
 # dualsense library for Pd
 Pd external and Pd-Lua object to connect and display Sony DualSense controller
 
+supports multitouch pad inputs, gyro and accelerometer sensors, force feedback and LED control with USB and Bluetooth connection
+
 ![dsshow.pd_lua screenshot](dsshow.png)
 
 ## usage
