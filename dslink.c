@@ -33,9 +33,9 @@
 #define DUALSENSE_VID 0x054C
 #define DUALSENSE_PID 0x0CE6
 
-#define INPUT_REPORT_USB_SIZE 64
 #define INPUT_REPORT_BT_SIZE 78
 #define INPUT_REPORT_BT_SHORT_SIZE 10
+#define INPUT_REPORT_USB_SIZE 64
 
 #define OUTPUT_REPORT_BT_OFFSET 1 // skip salt
 #define OUTPUT_REPORT_USB_OFFSET 3 // skip salt, bluetooth id and sequence byte (which isn't used)
@@ -44,9 +44,34 @@
 #define OUTPUT_REPORT_BT_SIZE 78
 #define OUTPUT_REPORT_BT_CHECK_SIZE 75 // without checksum, but prepended salt
 
-#define USB_REPORT_ID 0x02
-#define BT_REPORT_ID 0x31
 #define BT_REPORT_SALT 0xA2 // prepended for crc32 checksum
+#define BT_REPORT_ID 0x31
+#define USB_REPORT_ID 0x02
+
+#define REPORT_CONFIGURE1 0xFF
+// source: https://github.com/nowrep/dualsensectl/blob/main/main.c
+// COMPATIBLE_VIBRATION BIT(0) // <-- can somehow be compensated with motors bits below
+// HAPTICS_SELECT BIT(1)
+// RIGHT_TRIGGER_MOTOR_ENABLE BIT(2)
+// LEFT_TRIGGER_MOTOR_ENABLE BIT(3)
+// HEADPHONE_VOLUME_ENABLE BIT(4)
+// SPEAKER_VOLUME_ENABLE BIT(5)
+// MICROPHONE_VOLUME_ENABLE BIT(6)
+// AUDIO_CONTROL_ENABLE BIT(7)
+
+#define REPORT_CONFIGURE2 0xFF
+#define REPORT_CONFIGURE2_LED_RELEASED 0xF7
+// MIC_MUTE_LED_CONTROL_ENABLE BIT(0)
+// POWER_SAVE_CONTROL_ENABLE BIT(1)
+// LIGHTBAR_CONTROL_ENABLE BIT(2)
+// RELEASE_LEDS BIT(3)
+// PLAYER_INDICATOR_CONTROL_ENABLE BIT(4)
+// BIT(5) ???
+// VIBRATION_ATTENUATION_ENABLE BIT(6)
+// AUDIO_CONTROL2_ENABLE BIT(7)
+
+#define REPORT_CONFIGURE3 0xFF
+
 
 #define CALIBRATION_REPORT_SIZE 41
 #define CALIBRATION_FEATURE_REPORT_ID 0x05
@@ -54,13 +79,21 @@
 // offsets for bluetooth report and prepended salt
 #define OFFSET_MOTOR_RIGHT 6
 #define OFFSET_MOTOR_LEFT 7
-#define OFFSET_LED_R 48
-#define OFFSET_LED_G 49
-#define OFFSET_LED_B 50
-#define OFFSET_PLAYER_LEDS 47
 #define OFFSET_MUTE_LED 12
 #define OFFSET_LEFT_TRIGGER 13
 #define OFFSET_RIGHT_TRIGGER 24
+#define OFFSET_CONFIGURE_LED_MOTORS 42 // higher bits seem to be relevant here, too, for motors
+// LED_BRIGHTNESS_CONTROL_ENABLE BIT(0)
+// LIGHTBAR_SETUP_CONTROL_ENABLE BIT(1)
+// COMPATIBLE_VIBRATION2 BIT(2)
+// ???
+
+// #define OFFSET_CONFIGURE_LIGHTS 45 doesn't seem to do anything
+#define OFFSET_PLAYER_LEDS_BRIGHTNESS 46 // expects just 1st bit to dim player leds
+#define OFFSET_PLAYER_LEDS 47
+#define OFFSET_LED_R 48
+#define OFFSET_LED_G 49
+#define OFFSET_LED_B 50
 
 #define CRC32_POLYNOMIAL 0xEDB88320
 
@@ -190,6 +223,13 @@ static void dslink_set_motor(t_dslink *x, t_symbol *s, t_floatarg value) {
     dslink_write(x);
 }
 
+static void dslink_configure(t_dslink *x, t_float f) {
+    x->write_buf[OFFSET_CONFIGURE_LED_MOTORS] = (unsigned char)f;
+    // FIXME: should be exposed in more accessible way
+    // check what other stuff should be done here
+    // like attenuation etc.
+}
+
 static void dslink_set_led(t_dslink *x, t_symbol *s, int argc, t_atom *argv) {
     (void)s;
 
@@ -204,12 +244,18 @@ static void dslink_set_led(t_dslink *x, t_symbol *s, int argc, t_atom *argv) {
     if (type == gensym("mute"))
     {
         value = atom_getintarg(1, argc, argv);
-        x->write_buf[OFFSET_MUTE_LED] = value; // mask?
+        x->write_buf[OFFSET_MUTE_LED] = value & 0xFF; // mask?
+    }
+    else if (type == gensym("brightness"))
+    {
+        value = atom_getintarg(1, argc, argv);
+        x->write_buf[OFFSET_PLAYER_LEDS_BRIGHTNESS] = value > 0 ? 0 : 1;
     }
     else if (type == gensym("players"))
     {
         value = atom_getintarg(1, argc, argv);
         x->write_buf[OFFSET_PLAYER_LEDS] = value & 0x1F; // player LEDs only use the lower 5 bits
+        // FIXME: could be done in a more elaborated way maybe - see https://github.com/nowrep/dualsensectl/blob/main/main.c#L656
     }
     else if (type == gensym("color"))
     {
@@ -316,13 +362,14 @@ static int do_open(t_dslink *x) {
     } else
         pd_error(x, "dslink: unable to determine connection type");
 
-    x->write_buf[4] = 0xFF;
-    x->write_buf[5] = 0x7F;
-    x->write_buf[9] = 0xFF;
+    x->write_buf[4] = REPORT_CONFIGURE1;
+    x->write_buf[5] = REPORT_CONFIGURE2;
+    x->write_buf[9] = REPORT_CONFIGURE3;
+    x->write_buf[OFFSET_CONFIGURE_LED_MOTORS] = 1; // allow LED brightness setting
 
     x->write_size = x->is_bluetooth ? OUTPUT_REPORT_BT_SIZE : OUTPUT_REPORT_USB_SIZE;
     do_write(x); // write immediately to ensure that LED flag will be switched
-    x->write_buf[5] = 0x77; // release LED with next report
+    x->write_buf[5] = REPORT_CONFIGURE2_LED_RELEASED; // release LED with next report
 
     hid_set_nonblocking(x->handle, 1);
     return 1;
@@ -570,6 +617,7 @@ void dslink_setup(void) {
     class_addmethod(dslink_class, (t_method)dslink_close, gensym("close"), 0);
     class_addmethod(dslink_class, (t_method)dslink_poll, gensym("poll"), A_FLOAT, 0);
     class_addmethod(dslink_class, (t_method)dslink_set_motor, gensym("motor"), A_SYMBOL, A_FLOAT, 0);
+    class_addmethod(dslink_class, (t_method)dslink_configure, gensym("configure"), A_FLOAT, 0);
     class_addmethod(dslink_class, (t_method)dslink_set_led, gensym("led"), A_GIMME, 0);
     class_addmethod(dslink_class, (t_method)dslink_set_trigger, gensym("trigger"), A_GIMME, 0);
 
