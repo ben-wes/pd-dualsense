@@ -16,26 +16,38 @@ Pd external and Pd-Lua object to connect and display Sony DualSense controller
 
 * requires `pdlua` external for display (available through deken)
 
-## input messages
+## [dslink] input messages
 
-see screenshot and code ... more documentation will follow!
+| selector  | atom[0] |  values | description |
+| :--- | :--- | :--- | :--- |
+| led  | color  |  | `<r> <g> <b> <brightness>` | rgb 0..255, brightness 0..1 |
+|      | mute | `1 / 0` | turn "mute" LED on or of |
+|      | players | `0..31` | control "players" LEDs |
+|      | brightness | `1 / 0` | change brightness of "mute" and "players" |
+| motor | left | `0..255` | change intensity of actuators |
+|      | right |    |    |
+| trigger | left | `list of bytes` | control trigger mode and settings |
+|      | right |    |    |
+| configure |  | `<byte>` | currently exposes some bits for LED and motor modes. handle with care |
 
-## output messages
+also see screenshot, help and code ... more documentation will follow!
+
+## [dslink] output messages
 
 ### left outlet
 interaction with controller elements:
 
 | selector  | atom[0] | atom[1] | values | description |
 | :--- | :--- | :--- | :--- | :--- |
-| analog  | l  | x | -1..1 | left analog stick position |
+| analog  | l  | x | `-1..1` | left analog stick position |
 |         |  | y |  |  |
-|         | r  | x | -1..1 | right analog stick position |
+|         | r  | x | `-1..1` | right analog stick position |
 |         |  | y |  |  |
-| digital | x |   | -1 / 0 / 1 | digital pad directions |
+| digital | x |   | `-1 / 0 / 1` | digital pad directions |
 |         | y |   |  |   |
-| trigger | l |  | 0..1 | trigger position |
+| trigger | l |  | `0..1` | trigger position |
 |         | r |  |  |  |
-| button  | triangle |  | 0 / 1 | pressed state |
+| button  | triangle |  | `1 / 0` | pressed state |
 |         | circle   |  |  |  |
 |         | cross   |  |  |  |
 |         | circle   |  |  |  |
@@ -51,11 +63,11 @@ interaction with controller elements:
 |         | options   |  |  |  |
 |         | ps   |  |  |  |
 |         | mute   |  |  |  |
-| pad     | touch1 |  active | 0 / 1 | if first touch is detected |
-|         |        |  x  |  0..1  | touch position |
+| pad     | touch1 |  active | `1 / 0` | if first touch is detected |
+|         |        |  x  |  `0..1`  | touch position |
 |         |        |  y  |        |  |
-|         | touch2 |  active | 0 / 1 | if second touch is detected |
-|         |        |  x  |  0..1  | touch position |
+|         | touch2 |  active | `0 / 1` | if second touch is detected |
+|         |        |  x  |  `0..1`  | touch position |
 |         |        |  y  |        |  |
 
 ### middle outlet 
@@ -63,10 +75,10 @@ orientation interaction:
 
 | selector  | atom[0] | values | description |
 | :--- | :--- | :--- | :--- |
-| gyro  | x  | float | rotational velocity |
+| gyro  | x  | `<float>` | rotational velocity |
 |         | y |   |  |
 |         | z |   |  |
-| accel | x | float | acceleration (seems to be normalized to 1 for earth gravity) |
+| accel | x | `<float>` | acceleration (seems to be normalized to 1 for earth gravity) |
 |         | y |  |  |
 |         | z |  |  |
 
@@ -75,20 +87,20 @@ status information (probably not fully functional yet):
 
 | selector  | atom[0] | values | description |
 | :--- | :--- | :--- | :--- |
-| battery  | level | 0..9 | battery level (need to recheck scale) |
-|         | status |  0 | discharching  |
-|         |        |  1 | charging  |
-|         |        |  2 | full  |
-|         |        |  3 | temperature high (should be its own message) |
-|         |        |  4 | temperature low  |
-| bluetooth |  | 0 / 1 | 1 if connected via Bluetooth |
-| headphones |  | 0 / 1 | 1 if headphones connected |
-| microphone |  | 0 / 1 | 1 if microphone connected |
-| haptic active |  | 0 / 1 | (need to check - probably not working) |
+| battery  | level | `0..9` | battery level (need to recheck scale) |
+|         | status |  `0` | discharching  |
+|         |        |  `1` | charging  |
+|         |        |  `2` | full  |
+|         |        |  `3` | temperature high (should be its own message) |
+|         |        |  `4` | temperature low  |
+| bluetooth |  | `1 / 0` | 1 if connected via Bluetooth |
+| headphones |  | `1 / 0` | 1 if headphones connected |
+| microphone |  | `1 / 0` | 1 if microphone connected |
+| haptic active |  | `1 / 0` | (need to check - probably not working) |
 
 ## todos
 
 * currently only tested on macOS (arm64)
 * needs more documentation (mainly all possible message input)
-* fixes
 * some more features (some of them listed in the issues) 
+* fixes
