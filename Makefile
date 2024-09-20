@@ -32,6 +32,8 @@ datafiles = \
 	dslink-help.pd \
 	sensors2quat.pd \
 	sensors2impulse.pd \
+	sensors2pitchroll.pd \
+	rad2turn.pd \
 	${empty}
 
 objectsdir = ./build

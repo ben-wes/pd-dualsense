@@ -11,13 +11,14 @@
 #X msg 211 313 roll \$1;
 #X msg 63 311 pitch \$1;
 #X obj 63 382 outlet;
+#X obj 63 84 route accel;
 #X connect 0 0 3 0;
 #X connect 0 1 1 0;
 #X connect 0 1 4 0;
 #X connect 0 2 1 1;
 #X connect 0 2 5 0;
 #X connect 1 0 9 0;
-#X connect 2 0 0 0;
+#X connect 2 0 12 0;
 #X connect 3 0 8 0;
 #X connect 4 0 7 0;
 #X connect 5 0 7 1;
@@ -26,3 +27,4 @@
 #X connect 8 0 10 0;
 #X connect 9 0 11 0;
 #X connect 10 0 11 0;
+#X connect 12 0 0 0;
