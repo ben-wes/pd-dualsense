@@ -270,23 +270,23 @@ function ds:in_1_pad(atoms)
 end
 
 function ds:transform_point(point)
-    local outpoint = {0, 0, 0}
     local state = self.state
-    outpoint[1] = point[1] - state.impulse_x * 2
-    outpoint[2] = point[2] - state.impulse_y * 2
-    outpoint[3] = point[3] - state.impulse_z * 2
-    outpoint = shapes.rotateVectorByQuaternion(outpoint, {
+    point[1] = point[1] - state.impulse_x * 2
+    point[2] = point[2] - state.impulse_y * 2
+    point[3] = point[3] - state.impulse_z * 2
+    point = shapes.rotateVectorByQuaternion(point, {
         state.quat_w,
         state.quat_x,
         -state.quat_y,
         -state.quat_z
     })
-    return outpoint
+    return point
 end
 
 function ds:in_1_scale(x)
     self.scale = x[1]
     self:set_size(self.size[1]*self.scale, self.size[2]*self.scale)
+    -- self:repaint()
 end
 
 function ds:in_1_size(x)
@@ -294,14 +294,17 @@ function ds:in_1_size(x)
     self:set_size(self.size[1]*self.scale, self.size[2]*self.scale)
 end
 
-function ds:paint(g)
+-- function ds:paint(g) -- paint background
+-- end
+
+
+function ds:paint(g) -- paint dynamic elements
+    local state = self.state
+    local color_led = self:blend_color({0, 0, 0}, self.color_led, math.sin(self.time) * 0.2 + 0.8)
     g:scale(self.scale, self.scale)
     g:translate(22, 6)
-
-    local state = self.state
-
     g:set_color(table.unpack(self.color_case)); g:fill_path(shapes.paths.background)
-    local color_led = self:blend_color({0, 0, 0}, self.color_led, math.sin(self.time) * 0.2 + 0.8)
+
     g:set_color(table.unpack(color_led))
     g:fill_path(shapes.paths.led)
 
