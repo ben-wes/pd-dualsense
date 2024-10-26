@@ -577,7 +577,7 @@ static void dslink_free(t_dslink *x) {
     hid_exit();
 }
 
-static void *dslink_new(void) {
+static void *dslink_new(t_floatarg f) {
     t_dslink *x = (t_dslink *)pd_new(dslink_class);
     x->write_size = 0;
 
@@ -585,15 +585,21 @@ static void *dslink_new(void) {
     x->imu_out = outlet_new(&x->x_obj, &s_anything);
     x->status_out = outlet_new(&x->x_obj, &s_anything);
 
-    x->open_clock = clock_new(x, (t_method)open_tick);
     x->poll_clock = clock_new(x, (t_method)poll_tick);
     x->write_clock = clock_new(x, (t_method)do_write);
+    x->open_clock = clock_new(x, (t_method)open_tick);
     x->poll_interval = 0;
     x->handle = NULL;
 
     memset(&x->state, 0, sizeof(t_dslink_state));
-    post("dslink: trying to connect ...");
-    clock_delay(x->open_clock, 0);
+    
+    if (f != -1) {
+        post("dslink: trying to connect ...");
+        clock_delay(x->open_clock, 0);
+    } else {
+        post("dslink: auto-open disabled, use 'open' message to connect");
+    }
+    
     return (void *)x;
 }
 
@@ -608,6 +614,7 @@ void dslink_setup(void) {
                                 (t_method)dslink_free,
                                 sizeof(t_dslink),
                                 CLASS_DEFAULT,
+                                A_DEFFLOAT,
                                 0);
 
     class_addbang(dslink_class, dslink_read);
