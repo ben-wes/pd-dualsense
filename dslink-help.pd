@@ -11,7 +11,7 @@
 #X msg 371 362 size 200;
 #X msg 744 383 reinit;
 #X msg 371 383 size reset;
-#X obj 197 450 dsshow;
+#X obj 197 455 dsshow;
 #X obj 197 190 dslink;
 #X msg 197 77 open;
 #X obj 60 136 bng 16 250 50 0 empty empty empty 0 -8 0 10 #fcfcfc #000000 #000000;
@@ -52,6 +52,7 @@
 #X obj 120 343 rad2turn;
 #X floatatom 63 365 8 0 0 0 - - - 0;
 #X floatatom 120 365 8 0 0 0 - - - 0;
+#X msg 647 239 \; pdluax reload;
 #X connect 0 0 12 0;
 #X connect 1 0 0 0;
 #X connect 2 0 12 0;

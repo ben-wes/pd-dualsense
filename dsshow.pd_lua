@@ -144,6 +144,26 @@ function ds:state_color(input, fg, bg)
     return table.unpack(self:blend_color(bg, fg, self.state[input]))
 end
 
+function ds:tick()
+    self.state.pad1_touch = self.state.pad1_touch - 2 / self.delay_time
+    self.state.pad2_touch = self.state.pad2_touch - 2 / self.delay_time
+    self.time = self.time + 1 / self.delay_time
+
+    self:repaint(2)
+    self:repaint(4)
+    self.clock:delay(self.delay_time)
+end
+
+function ds:in_1_reload()
+    pd.post("reloading [" .. self.name .. self:table_to_string(self.args) .. "]")
+   self:dofilex(self._scriptname)
+end
+
+function ds:in_1_reinit()
+    pd.post("reinitializing [" .. self.name .. self:table_to_string(self.args) .. "]")
+   self:initialize(self.name, self.args)
+end
+
 function ds:in_1_color(x)
     if x[1] == "reset" or x[1] == "theme" then
         self:reset_colors(x[2])
@@ -165,6 +185,7 @@ function ds:in_1_color(x)
     else 
         self:error(self.name..": invalid color arguments")
     end
+    self:repaint()
 end
 
 function ds:in_1_googly(atoms)
@@ -179,10 +200,6 @@ function ds:in_1_digital(atoms)
         self.state.button_digital_down = math.max(atoms[2] * -1)
         self.state.button_digital_up = math.max(atoms[2])
     end
-end
-
-function ds:in_1(atoms)
-    -- generic method to safely ignore unknown messages
 end
 
 function ds:in_1_quat(atoms)
@@ -269,6 +286,20 @@ function ds:in_1_pad(atoms)
     end
 end
 
+function ds:in_1_scale(x)
+    self.scale = x[1]
+    self:set_size(self.size[1]*self.scale, self.size[2]*self.scale)
+end
+
+function ds:in_1_size(x)
+    self.scale = x[1] == "reset" and 1 or x[1] / self.size[1]
+    self:set_size(self.size[1]*self.scale, self.size[2]*self.scale)
+end
+
+function ds:in_1(atoms)
+    -- generic method to safely ignore unknown messages
+end
+
 function ds:transform_point(point)
     local state = self.state
     point[1] = point[1] - state.impulse_x * 2
@@ -283,30 +314,22 @@ function ds:transform_point(point)
     return point
 end
 
-function ds:in_1_scale(x)
-    self.scale = x[1]
-    self:set_size(self.size[1]*self.scale, self.size[2]*self.scale)
-    -- self:repaint()
-end
-
-function ds:in_1_size(x)
-    self.scale = x[1] == "reset" and 1 or x[1] / self.size[1]
-    self:set_size(self.size[1]*self.scale, self.size[2]*self.scale)
-end
-
--- function ds:paint(g) -- paint background
--- end
-
-
-function ds:paint(g) -- paint dynamic elements
-    local state = self.state
-    local color_led = self:blend_color({0, 0, 0}, self.color_led, math.sin(self.time) * 0.2 + 0.8)
+function ds:paint(g) -- paint background
     g:scale(self.scale, self.scale)
     g:translate(22, 6)
-    g:set_color(table.unpack(self.color_case)); g:fill_path(shapes.paths.background)
 
-    g:set_color(table.unpack(color_led))
-    g:fill_path(shapes.paths.led)
+    g:set_color(table.unpack(self.color_case)); g:fill_path(shapes.paths.background)
+    -- g:reset_transform()
+end
+
+function ds:paint_layer_2(g) -- paint background buttons and led
+    local state = self.state
+    local color_led = self:blend_color({0, 0, 0}, self.color_led, math.sin(self.time) * 0.2 + 0.8)
+
+    g:scale(self.scale, self.scale)
+    g:translate(22, 6)
+
+    g:set_color(table.unpack(color_led)); g:fill_path(shapes.paths.led)
 
     g:translate(0, state.button_l1*3)
     g:set_color(self:state_color("button_l1", self.color_active, self.color_case)); g:fill_path(shapes.paths.button_l1)
@@ -319,10 +342,22 @@ function ds:paint(g) -- paint dynamic elements
     g:translate(480, 0)
     g:set_color(self:state_color("button_r2", self.color_active, self.color_case)); g:fill_path(shapes.path_button_r2(state.trigger_r*0.28+0.3))
     g:translate(-528, -28)
+end
+
+function ds:paint_layer_3(g) -- paint cover and inlays
+    g:scale(self.scale, self.scale)
+    g:translate(22, 6)
 
     g:set_color(table.unpack(self.color_cover)); for i = 1, #shapes.path_groups.cover do g:fill_path(shapes.path_groups.cover[i]) end
     g:set_color(table.unpack(self.color_inlay)); for i = 1, #shapes.path_groups.inlays do g:fill_path(shapes.path_groups.inlays[i]) end
     g:set_color(table.unpack(self.color_inlay)); g:fill_path(shapes.paths.inlay_pd)
+end
+
+function ds:paint_layer_4(g) -- pad and buttons
+    local state = self.state
+
+    g:scale(self.scale, self.scale)
+    g:translate(22, 6)
 
     g:set_color(self:state_color("button_pad", self.color_active, self.color_cover)); g:fill_path(shapes.paths.pad)
     g:set_color(self:state_color("button_mute")); g:fill_path(shapes.paths.button_mute)
@@ -405,29 +440,4 @@ function ds:paint(g) -- paint dynamic elements
         g:set_color(table.unpack(self.color_cover))
         g:draw_text("2", state.pad2_x * 180 + 197, state.pad2_y * 96 + 14, 10, 12)
     end
-
-    -- g:reset_transform()
-end
-
-function ds:tick()
-    self.state.pad1_touch = self.state.pad1_touch - 2 / self.delay_time
-    self.state.pad2_touch = self.state.pad2_touch - 2 / self.delay_time
-    self.time = self.time + 1 / self.delay_time
-
-    self:repaint()
-    self.clock:delay(self.delay_time)
-end
-
-function ds:in_1_reload()
-    pd.post("reloading [" .. self.name .. self:table_to_string(self.args) .. "]")
-   self:dofilex(self._scriptname)
-end
-
-function ds:in_1_reinit()
-    pd.post("reinitializing [" .. self.name .. self:table_to_string(self.args) .. "]")
-   self:initialize(self.name, self.args)
-end
-
-function ds:in_1_bang()
-    self:repaint()
 end
