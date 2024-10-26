@@ -159,11 +159,6 @@ function ds:in_1_reload()
    self:dofilex(self._scriptname)
 end
 
-function ds:in_1_reinit()
-    pd.post("reinitializing [" .. self.name .. self:table_to_string(self.args) .. "]")
-   self:initialize(self.name, self.args)
-end
-
 function ds:in_1_color(x)
     if x[1] == "reset" or x[1] == "theme" then
         self:reset_colors(x[2])
