@@ -18,6 +18,10 @@ supports multitouch pad inputs, gyro and accelerometer sensors, force feedback a
 
 * requires `pdlua` external for display (available through deken)
 
+## [dslink] argument
+
+* `-1` will suppress the automatic connection attemps
+
 ## [dslink] input messages
 
 | selector  | atom[0] |  values | description |
