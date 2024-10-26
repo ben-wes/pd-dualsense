@@ -296,17 +296,18 @@ function ds:in_1(atoms)
 end
 
 function ds:transform_point(point)
+    local outpoint = {0, 0, 0}
     local state = self.state
-    point[1] = point[1] - state.impulse_x * 2
-    point[2] = point[2] - state.impulse_y * 2
-    point[3] = point[3] - state.impulse_z * 2
-    point = shapes.rotateVectorByQuaternion(point, {
+    outpoint[1] = point[1] - state.impulse_x * 2
+    outpoint[2] = point[2] - state.impulse_y * 2
+    outpoint[3] = point[3] - state.impulse_z * 2
+    outpoint = shapes.rotateVectorByQuaternion(outpoint, {
         state.quat_w,
         state.quat_x,
         -state.quat_y,
         -state.quat_z
     })
-    return point
+    return outpoint
 end
 
 function ds:paint(g) -- paint background
@@ -350,6 +351,7 @@ end
 
 function ds:paint_layer_4(g) -- pad and buttons
     local state = self.state
+    local color_led = self:blend_color({0, 0, 0}, self.color_led, math.sin(self.time) * 0.2 + 0.8)
 
     g:scale(self.scale, self.scale)
     g:translate(22, 6)
