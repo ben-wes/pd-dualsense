@@ -104,9 +104,9 @@ status information (probably not fully functional yet):
 | microphone |  | `1 / 0` | 1 if microphone connected |
 | haptic active |  | `1 / 0` | (need to check - probably not working) |
 
-## todos
+## known issues / todos
 
-* currently only tested on macOS (arm64)
-* needs more documentation (mainly all possible message input)
-* some more features (some of them listed in the issues) 
-* fixes
+* currently only tested on MacOS 15 (arm64) and Win11
+* Windows version doesn't support motor and LED control yet
+* needs more documentation (mainly all possible message input for dsshow)
+* some more features and fixes (also see issues) 
