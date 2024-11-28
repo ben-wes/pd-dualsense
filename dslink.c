@@ -477,12 +477,11 @@ static inline void parse_input_report(t_dslink *x, const unsigned char *buf, int
     t_float gyro_y = (t_float)((gyro_y_raw > 32767) ? gyro_y_raw - 65536 : gyro_y_raw) / 8192.0f;
     t_float gyro_z = (t_float)((gyro_z_raw > 32767) ? gyro_z_raw - 65536 : gyro_z_raw) / 8192.0f;
 
-    t_atom gyro_list[4];
-    SETSYMBOL(gyro_list, gensym("gyro"));
-    SETFLOAT(gyro_list + 1, gyro_x);
-    SETFLOAT(gyro_list + 2, gyro_y);
-    SETFLOAT(gyro_list + 3, gyro_z);
-    outlet_list(x->imu_out, &s_, 4, gyro_list);
+    t_atom gyro_list[3];
+    SETFLOAT(gyro_list    , gyro_x);
+    SETFLOAT(gyro_list + 1, gyro_y);
+    SETFLOAT(gyro_list + 2, gyro_z);
+    outlet_anything(x->imu_out, gensym("gyro"), 3, gyro_list);
 
     // Accelerometer
     uint16_t accel_x_raw = (uint16_t)((buf[offset + 23]) | buf[offset + 22] << 8);
@@ -493,12 +492,11 @@ static inline void parse_input_report(t_dslink *x, const unsigned char *buf, int
     t_float accel_y = (t_float)((accel_y_raw > 32767) ? accel_y_raw - 65536 : accel_y_raw) / 8192.0f;
     t_float accel_z = (t_float)((accel_z_raw > 32767) ? accel_z_raw - 65536 : accel_z_raw) / 8192.0f;
 
-    t_atom accel_list[4];
-    SETSYMBOL(accel_list, gensym("accel"));
-    SETFLOAT(accel_list + 1, accel_x);
-    SETFLOAT(accel_list + 2, accel_y);
-    SETFLOAT(accel_list + 3, accel_z);
-    outlet_list(x->imu_out, &s_, 4, accel_list);
+    t_atom accel_list[3];
+    SETFLOAT(accel_list    , accel_x);
+    SETFLOAT(accel_list + 1, accel_y);
+    SETFLOAT(accel_list + 2, accel_z);
+    outlet_anything(x->imu_out, gensym("accel"), 3, accel_list);
 
     // Touchpad
     for (int i = 0; i < 2; i++) {
