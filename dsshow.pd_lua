@@ -199,16 +199,16 @@ end
 
 function ds:in_1_quat(atoms)
     if not self.track_orientation then self.track_orientation = true end
-    if atoms[1] == "w" then self.state.quat_w = atoms[2] end
-    if atoms[1] == "x" then self.state.quat_x = atoms[2] end
-    if atoms[1] == "y" then self.state.quat_y = atoms[2] end
-    if atoms[1] == "z" then self.state.quat_z = atoms[2] end
+    self.state.quat_w = atoms[1] or 1
+    self.state.quat_x = atoms[2] or 0
+    self.state.quat_y = atoms[3] or 0
+    self.state.quat_z = atoms[4] or 0
 end
 
 function ds:in_1_impulse(atoms)
-    if atoms[1] == "x" then self.state.impulse_x = atoms[2] end
-    if atoms[1] == "y" then self.state.impulse_y = atoms[2] end
-    if atoms[1] == "z" then self.state.impulse_z = atoms[2] end
+    self.state.impulse_x = atoms[1] or 0
+    self.state.impulse_y = atoms[2] or 0
+    self.state.impulse_z = atoms[3] or 0
 end
 
 function ds:in_1_button(atoms)
