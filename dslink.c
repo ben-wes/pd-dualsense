@@ -80,8 +80,8 @@
 #define OFFSET_MOTOR_RIGHT 6
 #define OFFSET_MOTOR_LEFT 7
 #define OFFSET_MUTE_LED 12
-#define OFFSET_LEFT_TRIGGER 13
-#define OFFSET_RIGHT_TRIGGER 24
+#define OFFSET_RIGHT_TRIGGER 14 // is this correct? or should be 13?
+#define OFFSET_LEFT_TRIGGER 25 // is this correct? or should be 24?
 #define OFFSET_CONFIGURE_LED_MOTORS 42 // higher bits seem to be relevant here, too, for motors
 // LED_BRIGHTNESS_CONTROL_ENABLE BIT(0)
 // LIGHTBAR_SETUP_CONTROL_ENABLE BIT(1)
@@ -274,14 +274,21 @@ static void dslink_set_led(t_dslink *x, t_symbol *s, int argc, t_atom *argv) {
 }
 
 static void dslink_set_trigger(t_dslink *x, t_symbol *s, int argc, t_atom *argv) {
-    if (!x->handle || argc > 11) {
-        pd_error(x, "dslink: no device opened or invalid trigger settings");
+    (void)s;
+
+    // left/right + mode + 10 values: 12 arguments max
+    if (!x->handle) {
+        pd_error(x, "dslink: no device opened");
         return;
     }
-    int offset = (s == gensym("left")) ? OFFSET_LEFT_TRIGGER : OFFSET_RIGHT_TRIGGER;
 
-    for (int i = 0; i < 11; i++) {
-        x->write_buf[offset + i] = (unsigned char)atom_getfloat(&argv[i]);
+    // expecting first argument to set "left" or "right" trigger
+    int offset = (atom_getsymbol(argv) == gensym("left")) ? OFFSET_LEFT_TRIGGER : OFFSET_RIGHT_TRIGGER;
+    argv++, argc--;
+
+    for (int i = 0; i < 10; i++) { // FIXME: should be 11?
+        unsigned char value = (i < argc) ? atom_getfloat(&argv[i]) : 0;
+        x->write_buf[offset + i] = value;
     }
     dslink_write(x);
 }
