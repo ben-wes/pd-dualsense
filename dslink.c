@@ -126,6 +126,7 @@ typedef struct {
     t_float battery_level;
     t_float battery_status;
     t_float bluetooth;
+    t_float connected;
     t_float headphones, microphone;
     t_float haptic_active;
 } t_dslink_state;
@@ -172,12 +173,14 @@ static void dslink_poll(t_dslink *x, t_floatarg f) {
 static inline int dslink_read(t_dslink *x) {
     if (!x->handle) {
         pd_error(x, "dslink: no device opened");
+        output_value(x->status_out, (const char*[]){"connected"}, 1, &x->state.connected, 0, 0);
         return 0;
     }
 
     int res = hid_read(x->handle, x->read_buf, INPUT_REPORT_BT_SIZE);
     if (res < 0) {
         pd_error(x, "dslink: error reading from device");
+        output_value(x->status_out, (const char*[]){"connected"}, 1, &x->state.connected, 0, 0);
         return 0;
     }
     parse_input_report(x, x->read_buf, 1);
@@ -209,6 +212,7 @@ static void dslink_close(t_dslink *x) {
     if (x->handle) {
         hid_close(x->handle);
         x->handle = NULL;
+        output_value(x->status_out, (const char*[]){"connected"}, 1, &x->state.connected, 0, 0);
         post("dslink: connection closed");
     }
 }
@@ -303,6 +307,11 @@ static void dslink_state(t_dslink *x) {
     parse_input_report(x, x->read_buf, 0);
 }
 
+static void dslink_reconnect(t_dslink *x) {
+    clock_delay(x->open_clock, 0);
+}
+
+
 // Utility functions
 
 // perform actual HID write, called by clock
@@ -379,6 +388,7 @@ static int do_open(t_dslink *x) {
     x->write_buf[5] = REPORT_CONFIGURE2_LED_RELEASED; // release LED with next report
 
     hid_set_nonblocking(x->handle, 1);
+    output_value(x->status_out, (const char*[]){"connected"}, 1, &x->state.connected, 1, 0);
     return 1;
 }
 
@@ -629,6 +639,7 @@ void dslink_setup(void) {
                                 0);
 
     class_addbang(dslink_class, dslink_read);
+    class_addmethod(dslink_class, (t_method)dslink_reconnect, gensym("reconnect"), 0);
     class_addmethod(dslink_class, (t_method)dslink_read, gensym("read"), 0);
     class_addmethod(dslink_class, (t_method)dslink_open, gensym("open"), 0);
     class_addmethod(dslink_class, (t_method)dslink_state, gensym("state"), 0);
