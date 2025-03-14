@@ -287,8 +287,8 @@ static void dslink_set_trigger(t_dslink *x, t_symbol *s, int argc, t_atom *argv)
     }
 
     // expecting first argument to set "left" or "right" trigger
-    int offset = (atom_getsymbol(argv) == gensym("left")) ? OFFSET_LEFT_TRIGGER : OFFSET_RIGHT_TRIGGER;
-    argv++, argc--;
+    int offset = (atom_getsymbol(argv++) == gensym("left")) ? OFFSET_LEFT_TRIGGER : OFFSET_RIGHT_TRIGGER;
+    argc--;
 
     for (int i = 0; i < 10; i++) { // FIXME: should be 11?
         unsigned char value = (i < argc) ? atom_getfloat(&argv[i]) : 0;

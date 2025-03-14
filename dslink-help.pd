@@ -51,8 +51,13 @@
 #X obj 63 366 vsl 16 136 0 1 0 0 empty empty empty 0 -9 0 10 #fcfcfc #000000 #000000 0 1;
 #X obj 120 366 vsl 16 136 0 1 0 0 empty empty empty 0 -9 0 10 #fcfcfc #000000 #000000 0 1;
 #X msg 197 55 open \, poll 10;
-#X msg 364 110 trigger right 38 144 160 255;
-#X msg 364 48 trigger left 38 144 160 255;
+#X listbox 745 148 20 0 0 0 - - - 0;
+#X msg 363 111 trigger right 39 255 255 255 30;
+#X obj 364 226 route trigger;
+#X obj 364 247 route r;
+#X obj 454 225 > 0.5;
+#X msg 454 246 motor left \$1 \, motor right \$1;
+#X msg 364 48 trigger left 38 144 100 255;
 #X connect 0 0 11 0;
 #X connect 1 0 0 0;
 #X connect 2 0 11 0;
@@ -65,6 +70,7 @@
 #X connect 9 0 11 0;
 #X connect 10 0 11 0;
 #X connect 12 0 11 0;
+#X connect 12 0 54 0;
 #X connect 12 1 16 0;
 #X connect 12 1 15 0;
 #X connect 12 1 42 0;
@@ -101,5 +107,9 @@
 #X connect 47 0 11 0;
 #X connect 48 0 12 0;
 #X connect 51 0 12 0;
-#X connect 52 0 12 0;
 #X connect 53 0 12 0;
+#X connect 54 0 55 0;
+#X connect 55 0 56 0;
+#X connect 56 0 57 0;
+#X connect 57 0 12 0;
+#X connect 58 0 12 0;
