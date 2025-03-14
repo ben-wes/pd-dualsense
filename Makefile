@@ -34,6 +34,8 @@ datafiles = \
 	sensors2impulse.pd \
 	sensors2pitchroll.pd \
 	rad2turn.pd \
+	padacc.pd \
+	acc.pd \
 	${empty}
 
 objectsdir = ./build
